@@ -1,0 +1,99 @@
+.root {
+    -fx-background-color: white;
+}
+
+.header {
+    -fx-padding: 10 25;
+    -fx-border-color: transparent transparent #228B22 transparent;
+    -fx-border-width: 2;
+}
+
+.logo-box {
+    -fx-background-color: #005a7d;
+    -fx-text-fill: white;
+    -fx-padding: 10 20;
+    -fx-font-weight: bold;
+    -fx-font-size: 16px;
+}
+
+.logo-text-style {
+    -fx-text-fill: black;
+    -fx-padding: 10 12;
+    -fx-font-weight: bold;
+    -fx-font-size: 16px;
+}
+
+.headline-main {
+    -fx-font-size: 26px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #333333;
+}
+
+.button {
+    -fx-background-color: white;
+    -fx-border-color: #228B22;
+    -fx-border-radius: 4;
+    -fx-padding: 8 25;
+    -fx-font-size: 14px;
+    -fx-cursor: hand;
+}
+
+.button:hover {
+    -fx-background-color: #f0fdf0;
+}
+
+.button:pressed {
+    -fx-background-color: #228B22;
+    -fx-text-fill: white;
+}
+
+.btn-danger {
+    -fx-border-color: #d32f2f;
+    -fx-text-fill: #d32f2f;
+}
+
+.btn-danger:hover {
+    -fx-background-color: #ffebee;
+}
+
+.btn-danger:pressed {
+    -fx-background-color: #d32f2f;
+    -fx-text-fill: white;
+}
+
+.table-view {
+    -fx-font-size: 14px;
+    -fx-border-color: #228B22;
+    -fx-background-color: white;
+}
+
+.table-view .column-header {
+    -fx-background-color: #f8f8f8;
+    -fx-padding: 10;
+    -fx-border-color: #e0e0e0;
+}
+
+.booking-border-box {
+    -fx-border-color: #228B22;
+    -fx-border-width: 2;
+    -fx-padding: 40;
+    -fx-background-color: #ffffff;
+    -fx-border-radius: 5;
+}
+
+.label {
+    -fx-font-size: 15px;
+}
+
+.combo-box, .date-picker {
+    -fx-pref-width: 280;
+    -fx-pref-height: 35;
+    -fx-font-size: 14px;
+    -fx-background-color: white;
+    -fx-border-color: #cccccc;
+    -fx-border-radius: 3;
+}
+
+.combo-box:focused, .date-picker:focused {
+    -fx-border-color: #228B22;
+}
