@@ -1,6 +1,8 @@
 package application;
 
 import javafx.application.Application;
+import passanduser.Dao;
+import passanduser.Dbconnection; // Added import for Dbconnection
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.geometry.Insets;
@@ -10,8 +12,14 @@ import javafx.scene.control.*;
 import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.layout.*;
 import javafx.stage.Stage;
+
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.time.LocalDate;
+
 import auth.Login;
+
 public class Main {
     public static class App extends Application {
         private BorderPane mainLayout; 
@@ -49,19 +57,49 @@ public class Main {
             btnLogout.getStyleClass().add("btn-danger");
             
             btnLogout.setOnAction(e -> {
-            	// 1. Close the current JavaFX window
             	Stage stage = (Stage) btnLogout.getScene().getWindow();
-            	stage.close(); // close the current window
-            	
-            	// 2. Launch the Swing Login view
-            	Login.main(new String[0]); // launch the main method of the Login class (since it is declared as String[0] args, we should simply pass an empty String array)
+            	stage.close(); 
+            	Login.main(new String[0]); 
             });
             
             header.getChildren().addAll(logo, title, spacer, btnProfile, btnLogout);
             mainLayout.setTop(header);
         }
 
-        public void showDashboardView() {
+        // Fetch appointments from the database
+        private void loadAppointments() {
+            appointmentList.clear();
+            String username = "test"; // Using the same hardcoded user as your bookAppointment call
+            
+            // Added 'id' to the SELECT statement
+            String sql = "SELECT id, date, serviceTime, dentist, dentalService FROM appointments WHERE username = ?";
+            try (Connection con = Dbconnection.getConnection();
+                 PreparedStatement ps = con.prepareStatement(sql)) {
+                
+                if (con != null) {
+                    ps.setString(1, username);
+                    try (ResultSet rs = ps.executeQuery()) {
+                        while (rs.next()) {
+                            // Passing the retrieved id to the Appointment constructor
+                            appointmentList.add(new Appointment(
+                            	rs.getInt("id"),
+                                rs.getString("date"),
+                                rs.getString("serviceTime"),
+                                rs.getString("dentist"),
+                                rs.getString("dentalService")
+                            ));
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                System.out.println("❌ Failed to load appointments: " + e.getMessage());
+            }
+        }
+
+        @SuppressWarnings("unchecked")
+		public void showDashboardView() {
+            loadAppointments(); // Refresh the list from the database before showing
+
             VBox content = new VBox(25);
             content.setAlignment(Pos.TOP_CENTER);
             content.setPadding(new Insets(40));
@@ -154,26 +192,37 @@ public class Main {
 
             Button btnConfirm = new Button("Confirm");
             Button btnCancel = new Button("Cancel");
-            btnCancel.getStyleClass().add("btn-danger");
 
             btnConfirm.setOnAction(e -> {
-                if(datePicker.getValue() != null && serviceBox.getValue() != null) {
-                    if (existingAppointment != null) {
-                        appointmentList.remove(existingAppointment);
-                    }
-                    appointmentList.add(new Appointment(
-                        datePicker.getValue().toString(),
-                        timeBox.getValue(),
-                        dentistBox.getValue(),
-                        serviceBox.getValue()
-                    ));
-                    showDashboardView();
-                }
+            	if (existingAppointment != null) { // based on the previous statement, this means we're rescheduling an existing appointment
+					Dao.updateBooking("test", datePicker.getValue().toString(), timeBox.getValue(), dentistBox.getValue(), serviceBox.getValue());
+					showDashboardView(); // Re-loads the view, which will now pull the updated data from DB
+				} else if(datePicker.getValue() != null && serviceBox.getValue() != null) {
+                    Dao.bookAppointment("test", datePicker.getValue().toString(), timeBox.getValue(), dentistBox.getValue(), serviceBox.getValue());
+                    showDashboardView(); // Re-loads the view, which will now pull the new data from DB
+                } else {
+					Alert alert = new Alert(Alert.AlertType.WARNING);
+					alert.setContentText("Please fill in all required fields.");
+					alert.show();
+				}
             });
 
             btnCancel.setOnAction(e -> showDashboardView());
 
-            formActions.getChildren().addAll(btnConfirm, btnCancel);
+            if(existingAppointment != null) {
+                Button btnDelete = new Button("Delete");
+                btnDelete.getStyleClass().add("btn-danger");
+                
+                btnDelete.setOnAction(e -> {
+                	// You can now access existingAppointment.getId() here to pass to Dao.deleteBooking()
+                	Dao.deleteBooking(existingAppointment.getId());
+					showDashboardView(); // Re-loads the view, which will now pull the updated data from DB
+				});	
+                
+            	formActions.getChildren().addAll(btnConfirm, btnCancel, btnDelete);
+            } else {
+            	formActions.getChildren().addAll(btnConfirm, btnCancel);
+            }
             formBox.getChildren().addAll(formTitle, grid, formActions);
             
             StackPane container = new StackPane(formBox);
@@ -182,10 +231,15 @@ public class Main {
         }
 
         public static class Appointment {
+        	private int id;
             private String date, time, dentist, service;
-            public Appointment(String date, String time, String dentist, String service) {
+            
+            public Appointment(int id, String date, String time, String dentist, String service) {
+            	this.id = id;
                 this.date = date; this.time = time; this.dentist = dentist; this.service = service;
             }
+            
+            public int getId() { return id; } 
             public String getDate() { return date; }
             public String getTime() { return time; }
             public String getDentist() { return dentist; }

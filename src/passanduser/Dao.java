@@ -4,7 +4,119 @@ import java.sql.*;
 import model.User;
 
 public class Dao {
+	public static void deleteBooking(int id) {
+		Connection con = null;
+		PreparedStatement ps = null;
+		
+		try {
+			con = Dbconnection.getConnection();
+			if (con == null) {
+				System.out.println("❌ Database connection failed!");
+				return;
+			}
 
+			String sql = "DELETE FROM appointments WHERE id=?";
+			ps = con.prepareStatement(sql);
+			ps.setInt(1, id);
+
+			boolean success = ps.executeUpdate() > 0;
+			if(success) System.out.println("✅ Appointment deleted for " + id);
+
+		} catch (Exception e) {
+			System.out.println("❌ Deletion Error: " + e.getMessage());
+		} finally {
+			closeSafely(null, ps, con);
+		}
+		
+	}
+	public static void updateBooking(String username, String date, String serviceTime, String dentist, String dentalService) {
+		Connection con = null;
+		PreparedStatement ps = null;
+		
+		try {
+			con = Dbconnection.getConnection();
+			if (con == null) {
+				System.out.println("❌ Database connection failed!");
+				return;
+			}
+
+			String sql = "UPDATE appointments SET date=?, serviceTime=?, dentist=?, dentalService=? WHERE username=?";
+			ps = con.prepareStatement(sql);
+			ps.setString(1, date);
+			ps.setString(2, serviceTime);
+			ps.setString(3, dentist);
+			ps.setString(4, dentalService);
+			ps.setString(5, username);
+
+			boolean success = ps.executeUpdate() > 0;
+			if(success) System.out.println("✅ Appointment updated for " + username);
+
+		} catch (Exception e) {
+			System.out.println("❌ Update Error: " + e.getMessage());
+		} finally {
+			closeSafely(null, ps, con);
+		}
+		
+	}
+	public static void bookAppointment(String username, String date, String serviceTime, String dentist, String dentalService) {
+		Connection con = null;
+		PreparedStatement ps = null;
+		
+		try {
+			con = Dbconnection.getConnection();
+			if (con == null) {
+				System.out.println("❌ Database connection failed!");
+				return;
+			}
+
+			String sql = "INSERT INTO appointments (username, date, serviceTime, dentist, dentalService) VALUES (?, ?, ?, ?, ?)";
+			ps = con.prepareStatement(sql);
+			ps.setString(1, username);
+			ps.setString(2, date);
+			ps.setString(3, serviceTime);
+			ps.setString(4, dentist);
+			ps.setString(5, dentalService);
+			
+
+			boolean success = ps.executeUpdate() > 0;
+			if(success) System.out.println("✅ Appointment booked for " + username + " with Dr. " + dentist + " on " + date);
+
+		} catch (Exception e) {
+			System.out.println("❌ Booking Error: " + e.getMessage());
+		} finally {
+			closeSafely(null, ps, con);
+		}
+		
+	}
+	
+	public static void readAppointments(String username) {
+		Connection con = null;
+		PreparedStatement ps = null;
+		ResultSet rs = null;
+		
+		try {
+			con = Dbconnection.getConnection();
+			if (con == null) {
+				System.out.println("❌ Database connection failed!");
+				return;
+			}
+
+			String sql = "SELECT * FROM appointments WHERE username=?";
+			ps = con.prepareStatement(sql);
+			ps.setString(1, username);
+			rs = ps.executeQuery();	
+
+			System.out.println("📅 Appointments for " + username + ":");
+			while (rs.next()) {
+				System.out.println("- " + rs.getString("date") + " at " + rs.getString("serviceTime") + " with Dr. " + rs.getString("dentist") + " (" + rs.getString("dentalService") + ")");
+			}
+
+		} catch (Exception e) {
+			System.out.println("❌ Read Error: " + e.getMessage());
+		} finally {
+			closeSafely(rs, ps, con);
+		}
+	}
     // 🔐 LOGIN WITH ACTIVITY TRACKING
     public static User login(String username, String password) {
         Connection con = null;
