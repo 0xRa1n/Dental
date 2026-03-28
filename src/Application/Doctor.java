@@ -10,6 +10,7 @@ import javafx.scene.control.*;
 import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.layout.*;
 import javafx.stage.Stage;
+import passanduser.Dao;
 import passanduser.Dbconnection;
 
 import java.sql.Connection;
@@ -120,11 +121,17 @@ public class Doctor extends Application {    // Fetch appointments from the data
             if (selected != null) {
                 String s = selected.getStatus();
                 // Cycle: Pending -> Completed -> Canceled -> Pending
-                if (s.equals("Pending")) selected.setStatus("Completed");
-                else if (s.equals("Completed")) selected.setStatus("Canceled");
-                else selected.setStatus("Pending...");
-                
+                ChoiceDialog<String> dialog = new ChoiceDialog<>(s, "Completed", "Cancelled", "Pending");
+                dialog.setHeaderText("Update Appointment Status");
+                dialog.showAndWait().ifPresent(newStatus -> {
+					selected.setStatus(newStatus);
+					// get the ID of the selected appointment
+					int appointmentId = Integer.parseInt(selected.getId());
+					// Update the status in the database
+					Dao.updateAppointmentStatus(appointmentId, newStatus);
+				});
                 table.refresh();
+                
             }
         });
 

@@ -4,6 +4,32 @@ import java.sql.*;
 import model.User;
 import java.util.Optional;
 public class Dao {
+	public static void updateAppointmentStatus(int id, String newStatus) {
+		Connection con = null;
+		PreparedStatement ps = null;
+		
+		try {
+			con = Dbconnection.getConnection();
+			if (con == null) {
+				System.out.println("❌ Database connection failed!");
+				return;
+			}
+
+			String sql = "UPDATE appointments SET status=? WHERE id=?";
+			ps = con.prepareStatement(sql);
+			ps.setString(1, newStatus);
+			ps.setInt(2, id);
+
+			boolean success = ps.executeUpdate() > 0;
+			if(success) System.out.println("✅ Appointment status updated to '" + newStatus + "' for ID " + id);
+
+		} catch (Exception e) {
+			System.out.println("❌ Status Update Error: " + e.getMessage());
+		} finally {
+			closeSafely(null, ps, con);
+		}
+		
+	}
 	public static void deleteBooking(int id) {
 		Connection con = null;
 		PreparedStatement ps = null;
@@ -29,7 +55,7 @@ public class Dao {
 		}
 		
 	}
-	public static void updateBooking(String username, String date, String serviceTime, String dentist, String dentalService, Optional<String> status) {
+	public static void updateBooking(String username, String date, String serviceTime, String dentist, String dentalService, String status) {
 		Connection con = null;
 		PreparedStatement ps = null;
 		
