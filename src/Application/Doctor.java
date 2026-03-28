@@ -10,12 +10,47 @@ import javafx.scene.control.*;
 import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.layout.*;
 import javafx.stage.Stage;
+import passanduser.Dbconnection;
+
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+
 import auth.Login;
 
-public class Doctor extends Application {
-
-    @Override
-    public void start(Stage stage) {
+public class Doctor extends Application {    // Fetch appointments from the database
+    ObservableList<Appointment> patientsBooking = FXCollections.observableArrayList();
+    // Fetch appointments from the database
+    private void loadAppointments(String doctorName) {
+    	patientsBooking.clear();     
+        // Added 'id' to the SELECT statement
+        String sql = "SELECT id, username, date, serviceTime, dentalService, status FROM appointments WHERE dentist = ?";
+        try (Connection con = Dbconnection.getConnection();
+             PreparedStatement ps = con.prepareStatement(sql)) {
+            
+            if (con != null) {
+                ps.setString(1, doctorName);
+                try (ResultSet rs = ps.executeQuery()) {
+                    while (rs.next()) {
+                        // Passing the retrieved id to the Appointment constructor
+                    	patientsBooking.add(new Appointment(
+                        	rs.getInt("id"),
+                            rs.getString("username"),
+                            rs.getString("serviceTime"),
+                            rs.getString("date"),
+                            rs.getString("dentalService"),
+                            rs.getString("status")
+                        ));
+//                        String[] colNames = {"ID", "Patient", "Service Time", "Date", "Service", "Status"};
+                    }
+                }
+            }
+        } catch (Exception e) {
+            System.out.println("❌ Failed to load appointments: " + e.getMessage());
+        }
+    }
+    public void start(Stage stage, String doctorName) {
+    	
         Label logo = new Label("logo");
         logo.setStyle("-fx-background-color: #1a5276; -fx-text-fill: white; -fx-padding: 15 25; -fx-font-weight: bold;");
         
@@ -43,18 +78,30 @@ public class Doctor extends Application {
         table.setPrefHeight(200);
         table.setStyle("-fx-border-color: #2e7d32; -fx-background-color: white;");
 
-        String[] colNames = {"Patient", "Time", "Service", "Status"};
-        for (String name : colNames) {
-            TableColumn<Appointment, String> col = new TableColumn<>(name);
-            col.setCellValueFactory(new PropertyValueFactory<>(name.toLowerCase()));
-            table.getColumns().add(col);
-        }
+     // Explicitly map columns to the correct getter method names
+        TableColumn<Appointment, String> colId = new TableColumn<>("ID");
+        colId.setCellValueFactory(new PropertyValueFactory<>("id"));
 
-        ObservableList<Appointment> data = FXCollections.observableArrayList(
-            new Appointment("Ewanko", "10:00 AM", "Cleaning", "Pending")
-        );
-        table.setItems(data);
+        TableColumn<Appointment, String> colPatient = new TableColumn<>("Patient");
+        colPatient.setCellValueFactory(new PropertyValueFactory<>("patient"));
 
+        TableColumn<Appointment, String> colServiceTime = new TableColumn<>("Service Time");
+        colServiceTime.setCellValueFactory(new PropertyValueFactory<>("serviceTime"));
+
+        TableColumn<Appointment, String> colDate = new TableColumn<>("Date");
+        colDate.setCellValueFactory(new PropertyValueFactory<>("date"));
+
+        TableColumn<Appointment, String> colService = new TableColumn<>("Service");
+        colService.setCellValueFactory(new PropertyValueFactory<>("dentalService"));
+
+        TableColumn<Appointment, String> colStatus = new TableColumn<>("Status");
+        colStatus.setCellValueFactory(new PropertyValueFactory<>("status"));
+
+        table.getColumns().addAll(colId, colPatient, colServiceTime, colDate, colService, colStatus);
+
+        loadAppointments(doctorName); // Load appointments from the database
+        table.setItems(patientsBooking);
+        
         VBox center = new VBox(15, new Label("Appointments"), table);
         center.setAlignment(Pos.CENTER);
         center.setPadding(new Insets(20, 60, 20, 60));
@@ -109,19 +156,29 @@ public class Doctor extends Application {
     }
 
     public static class Appointment {
-        private final SimpleStringProperty patient, time, service, status;
-        public Appointment(String p, String t, String ser, String sta) {
-            this.patient = new SimpleStringProperty(p);
-            this.time = new SimpleStringProperty(t);
-            this.service = new SimpleStringProperty(ser);
-            this.status = new SimpleStringProperty(sta);
+		private final SimpleStringProperty id, patient, serviceTime, time, dentalService, status;
+        public Appointment(int id, String patientUsername, String serviceTime, String date, String dentalService, String status) {
+			this.id = new SimpleStringProperty(String.valueOf(id));
+			this.patient = new SimpleStringProperty(patientUsername);
+			this.serviceTime = new SimpleStringProperty(serviceTime);
+			this.time = new SimpleStringProperty(date);
+			this.dentalService = new SimpleStringProperty(dentalService);
+			this.status = new SimpleStringProperty(status);
         }
-        public String getPatient() { return patient.get(); }
-        public String getTime() { return time.get(); }
-        public String getService() { return service.get(); }
-        public String getStatus() { return status.get(); }
-        public void setStatus(String s) { this.status.set(s); }
+		public String getId() { return id.get(); }
+		public String getPatient() { return patient.get(); }
+		public String getServiceTime() { return serviceTime.get(); }
+		public String getDate() { return time.get(); }
+		public String getDentalService() { return dentalService.get(); }
+		public String getStatus() { return status.get(); }
+		public void setStatus(String newStatus) { this.status.set(newStatus); }
+		
+    }
+    @Override
+    public void start(Stage stage) {
+        // Default fallback if launched directly without a doctor name
+        start(stage, "Unknown Doctor");
     }
 
-    public static void main(String[] args) { launch(args); }
+    public static void main(String[] args) { Application.launch(args); }
 }

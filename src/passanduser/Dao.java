@@ -2,7 +2,7 @@ package passanduser;
 
 import java.sql.*;
 import model.User;
-
+import java.util.Optional;
 public class Dao {
 	public static void deleteBooking(int id) {
 		Connection con = null;
@@ -29,11 +29,13 @@ public class Dao {
 		}
 		
 	}
-	public static void updateBooking(String username, String date, String serviceTime, String dentist, String dentalService) {
+	public static void updateBooking(String username, String date, String serviceTime, String dentist, String dentalService, Optional<String> status) {
 		Connection con = null;
 		PreparedStatement ps = null;
 		
 		try {
+			
+			
 			con = Dbconnection.getConnection();
 			if (con == null) {
 				System.out.println("❌ Database connection failed!");
@@ -69,13 +71,14 @@ public class Dao {
 				return;
 			}
 
-			String sql = "INSERT INTO appointments (username, date, serviceTime, dentist, dentalService) VALUES (?, ?, ?, ?, ?)";
+			String sql = "INSERT INTO appointments (username, date, serviceTime, dentist, dentalService, status) VALUES (?, ?, ?, ?, ?, ?)";
 			ps = con.prepareStatement(sql);
 			ps.setString(1, username);
 			ps.setString(2, date);
 			ps.setString(3, serviceTime);
 			ps.setString(4, dentist);
 			ps.setString(5, dentalService);
+			ps.setString(6, "Pending");
 			
 
 			boolean success = ps.executeUpdate() > 0;

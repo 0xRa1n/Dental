@@ -1,7 +1,7 @@
 package auth;
 
 import javax.swing.*;
-
+import application.Doctor;
 import application.Main;
 
 import java.awt.*;
@@ -230,45 +230,41 @@ public class Login extends JDialog {
             if (user != null) {
                 System.out.println(user.getRole().toUpperCase());
                 
+                // Safely initialize JavaFX toolkit only once
+                if (!isJavaFxLaunched) {
+                    isJavaFxLaunched = true;
+                    try {
+                        javafx.application.Platform.startup(() -> {});
+                    } catch (IllegalStateException e) {
+                        // Suppress if toolkit is already initialized
+                    }
+                }
+
                 // Prevent JavaFX from shutting down when the last window is closed
                 javafx.application.Platform.setImplicitExit(false); 
 
-                if (user.getRole().toUpperCase().equals("PATIENT")) {
-                    if (!isJavaFxLaunched) {
-                        isJavaFxLaunched = true;
-                        new Thread(() -> { // what thread does is for example logging out, without this it will return an IllegalStateException because JavaFX is not running, but with this it will start the JavaFX runtime and then run the code inside the run method, which is to launch the Main class of the application package (which is the JavaFX application)
-                            application.Main.main(new String[0]);
-                        }).start();
-                    } else {
-                        javafx.application.Platform.runLater(() -> { // then, if the JavaFX runtime is already running, we can simply run the code inside the run method, which is to launch the Main class of the application package (which is the JavaFX application)
-                             try {
-                                 new application.Main.App().start(new javafx.stage.Stage());
-                             } catch (Exception ex) {
-                                 ex.printStackTrace();
-                             }
-                        });
-                    }
-                } else if (user.getRole().toUpperCase().equals("ADMIN")) {
-                    if (!isJavaFxLaunched) {
-                        isJavaFxLaunched = true;
-                        new Thread(() -> {
-                            admin.AdminUI.main(new String[0]);
-                        }).start();
-                    } else {
-                        javafx.application.Platform.runLater(() -> {
-                             try {
-                                 new admin.AdminUI().start(new javafx.stage.Stage());
-                             } catch (Exception ex) {
-                                 ex.printStackTrace();
-                             }
-                        });
-                    }
-                } else {
-                    JOptionPane.showMessageDialog(this,
-                        "❌ Unrecognized user role: " + user.getRole(),
-                        "Login Failed", JOptionPane.ERROR_MESSAGE);
-                    return; 
-                }
+                String role = user.getRole().toUpperCase();
+
+                // Run UI creation on the JavaFX Application Thread
+                javafx.application.Platform.runLater(() -> {
+                     try {
+                         if (role.equals("PATIENT")) {
+                             new application.Main.App().start(new javafx.stage.Stage());
+                         } else if (role.equals("ADMIN")) {
+                             new admin.AdminUI().start(new javafx.stage.Stage());
+                         } else if (role.equals("DOCTOR")) {
+                             application.Doctor doc = new application.Doctor();
+                             doc.start(new javafx.stage.Stage(), user.getUsername());
+                         } else {
+                             // Must run Swing dialog logically back on EDT, or just sysout
+                             SwingUtilities.invokeLater(() -> 
+                                 JOptionPane.showMessageDialog(null, "❌ Unrecognized user role: " + role)
+                             );
+                         }
+                     } catch (Exception ex) {
+                         ex.printStackTrace();
+                     }
+                });
 
                 // Close the login window
                 dispose();
@@ -291,7 +287,6 @@ public class Login extends JDialog {
                 "Error", JOptionPane.ERROR_MESSAGE);
         }
     }
-
 
     public static void main(String[] args) {
         try {

@@ -67,6 +67,28 @@ public class Main {
             mainLayout.setTop(header);
         }
 
+        // Helper method to convert DB name to Display name
+        private String getDisplayDentistName(String dbName) {
+            if (dbName == null) return null;
+            switch (dbName) {
+                case "maria_santos": return "Dr. Maria Santos";
+                case "ricardo_reyes": return "Dr. Ricardo Reyes";
+                case "elena_cruzz": return "Dr. Elena Cruz";
+                default: return dbName;
+            }
+        }
+
+        // Helper method to convert Display name to DB name
+        private String getDbDentistName(String displayName) {
+            if (displayName == null) return null;
+            switch (displayName) {
+                case "Dr. Maria Santos": return "maria_santos";
+                case "Dr. Ricardo Reyes": return "ricardo_reyes";
+                case "Dr. Elena Cruz": return "elena_cruzz";
+                default: return displayName;
+            }
+        }
+
         // Fetch appointments from the database
         private void loadAppointments() {
             appointmentList.clear();
@@ -82,11 +104,12 @@ public class Main {
                     try (ResultSet rs = ps.executeQuery()) {
                         while (rs.next()) {
                             // Passing the retrieved id to the Appointment constructor
+                            // Mapping internal db dentist name to display name
                             appointmentList.add(new Appointment(
                             	rs.getInt("id"),
                                 rs.getString("date"),
                                 rs.getString("serviceTime"),
-                                rs.getString("dentist"),
+                                getDisplayDentistName(rs.getString("dentist")), // this converts the stored db name to a user-friendly display name (e.g., "Dr. Maria Santos" to "maria_santos")
                                 rs.getString("dentalService")
                             ));
                         }
@@ -178,7 +201,7 @@ public class Main {
 
             if (existingAppointment != null) {
                 serviceBox.setValue(existingAppointment.getService());
-                dentistBox.setValue(existingAppointment.getDentist());
+                dentistBox.setValue(existingAppointment.getDentist()); // Display name is stored in the Appointment class
                 timeBox.setValue(existingAppointment.getTime());
                 datePicker.setValue(LocalDate.parse(existingAppointment.getDate()));
             }
@@ -195,14 +218,14 @@ public class Main {
             Button btnCancel = new Button("Cancel");
 
             btnConfirm.setOnAction(e -> {
-            	if (existingAppointment != null) { // based on the previous statement, this means we're rescheduling an existing appointment
-					Dao.updateBooking("test", datePicker.getValue().toString(), timeBox.getValue(), dentistBox.getValue(), serviceBox.getValue());
+            	if (existingAppointment != null) { 
+					Dao.updateBooking("test", datePicker.getValue().toString(), timeBox.getValue(), getDbDentistName(dentistBox.getValue()), serviceBox.getValue(), null);
                     applicationFunctions.showDialog("INFORMATION", "Successfully rescheduled appointment.", "Reschedule", "Reschedule Successful");
-					showDashboardView(); // Re-loads the view, which will now pull the updated data from DB
+					showDashboardView(); 
 				} else if(datePicker.getValue() != null && serviceBox.getValue() != null) {
                     applicationFunctions.showDialog("INFORMATION", "Successfully booked appointment.", "Booking", "Booking Confirmed");
-                    Dao.bookAppointment("test", datePicker.getValue().toString(), timeBox.getValue(), dentistBox.getValue(), serviceBox.getValue());
-                    showDashboardView(); // Re-loads the view, which will now pull the new data from DB
+                    Dao.bookAppointment("test", datePicker.getValue().toString(), timeBox.getValue(), getDbDentistName(dentistBox.getValue()), serviceBox.getValue());
+                    showDashboardView(); 
                 } else {
 					Alert alert = new Alert(Alert.AlertType.WARNING);
 					alert.setContentText("Please fill in all required fields.");
@@ -219,10 +242,10 @@ public class Main {
                 btnDelete.setOnAction(e -> {
                 	boolean confirmDelete = applicationFunctions.showConfirmationDialog("Are you sure you want to delete this appointment?", "Delete Appointment", "Confirm Deletion");
 					if (confirmDelete) {
-						Dao.deleteBooking(existingAppointment.getId()); // Pass the appointment ID to delete the correct record
+						Dao.deleteBooking(existingAppointment.getId()); 
 						applicationFunctions.showDialog("CONFIRMATION", "Successfully deleted appointment.", "Delete", "Deletion Successful");
 					}
-					showDashboardView(); // Re-loads the view, which will now pull the updated data from DB
+					showDashboardView(); 
 				});	
                 
             	formActions.getChildren().addAll(btnConfirm, btnCancel, btnDelete);
