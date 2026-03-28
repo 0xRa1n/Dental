@@ -10,6 +10,9 @@ import javafx.scene.control.*;
 import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.layout.*;
 import javafx.stage.Stage;
+import javafx.stage.Modality;
+
+import javafx.scene.control.TextArea;
 import passanduser.Dao;
 import passanduser.Dbconnection;
 
@@ -141,9 +144,41 @@ public class Doctor extends Application {    // Fetch appointments from the data
         });
 
         btnAdd.setOnAction(e -> {
-            TextInputDialog dialog = new TextInputDialog();
-            dialog.setHeaderText("Enter Appointment Notes");
-            dialog.showAndWait();
+            Stage noteStage = new Stage();
+            // Block interaction with other windows until this is closed
+            noteStage.initModality(Modality.APPLICATION_MODAL);
+            noteStage.setTitle("Add Notes");
+
+            // Top Title
+            Label titleLabel = new Label("Add Notes");
+            // Right Panel (TextArea)
+            TextArea textArea = new TextArea();
+            textArea.setPromptText("Enter notes for the appointment...");
+            textArea.setWrapText(true);
+            HBox.setHgrow(textArea, Priority.ALWAYS);
+
+            // Inner Container holding Details and TextArea
+            HBox innerBox = new HBox(10, textArea);
+            innerBox.setStyle("-fx-border-color: #558b2f; -fx-padding: 0;");
+            innerBox.setPrefHeight(200);
+
+            // Save Button
+            Button btnSave = new Button("Save");
+            btnSave.setStyle("-fx-background-color: white; -fx-border-color: #558b2f; -fx-padding: 5 30;");
+            btnSave.setOnAction(ev -> {
+                System.out.println("Notes added: " + textArea.getText());
+                // Here you would save the notes to the database
+                noteStage.close();
+            });
+
+            // Main Layout Container
+            VBox rootBox = new VBox(15, titleLabel, innerBox, btnSave);
+            rootBox.setAlignment(Pos.CENTER);
+            rootBox.setPadding(new Insets(20));
+            rootBox.setStyle("-fx-border-color: #558b2f; -fx-border-width: 2; -fx-background-color: white;");
+
+            noteStage.setScene(new Scene(rootBox, 500, 350));
+            noteStage.showAndWait();
         });
 
         HBox footer = new HBox(20, btnUpdate, btnView, btnAdd);
