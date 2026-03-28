@@ -1,8 +1,8 @@
 package auth;
 
 import javax.swing.*;
-import application.Doctor;
-import application.Main;
+import Application.Doctor;
+import Application.Main;
 
 import java.awt.*;
 import java.awt.event.MouseAdapter;
@@ -10,7 +10,7 @@ import java.awt.event.MouseEvent;
 import passanduser.Dao;
 import model.User;
 
-import application.Main;
+import Application.Main;
 import admin.AdminUI;
 
 public class Login extends JDialog {
@@ -249,11 +249,11 @@ public class Login extends JDialog {
                 javafx.application.Platform.runLater(() -> {
                      try {
                          if (role.equals("PATIENT")) {
-                             new application.Main.App().start(new javafx.stage.Stage());
+                             new Application.Main.App().start(new javafx.stage.Stage());
                          } else if (role.equals("ADMIN")) {
                              new admin.AdminUI().start(new javafx.stage.Stage());
                          } else if (role.equals("DOCTOR")) {
-                             application.Doctor doc = new application.Doctor();
+                             Application.Doctor doc = new Application.Doctor();
                              doc.start(new javafx.stage.Stage(), user.getUsername());
                          } else {
                              // Must run Swing dialog logically back on EDT, or just sysout

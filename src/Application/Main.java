@@ -1,4 +1,4 @@
-package application;
+package Application;
 
 import javafx.application.Application;
 import passanduser.Dao;
@@ -95,7 +95,7 @@ public class Main {
             String username = "test"; // Using the same hardcoded user as your bookAppointment call
             
             // Added 'id' to the SELECT statement
-            String sql = "SELECT id, date, serviceTime, dentist, dentalService FROM appointments WHERE username = ?";
+            String sql = "SELECT id, date, serviceTime, dentist, status, dentalService FROM appointments WHERE username = ?";
             try (Connection con = Dbconnection.getConnection();
                  PreparedStatement ps = con.prepareStatement(sql)) {
                 
@@ -110,7 +110,8 @@ public class Main {
                                 rs.getString("date"),
                                 rs.getString("serviceTime"),
                                 getDisplayDentistName(rs.getString("dentist")), // this converts the stored db name to a user-friendly display name (e.g., "Dr. Maria Santos" to "maria_santos")
-                                rs.getString("dentalService")
+                                rs.getString("dentalService"),
+                                rs.getString("status")
                             ));
                         }
                     }
@@ -144,8 +145,10 @@ public class Main {
             colDentist.setCellValueFactory(new PropertyValueFactory<>("dentist"));
             TableColumn<Appointment, String> colService = new TableColumn<>("Service");
             colService.setCellValueFactory(new PropertyValueFactory<>("service"));
+            TableColumn<Appointment, String> colStatus = new TableColumn<>("Status");
+            colStatus.setCellValueFactory(new PropertyValueFactory<>("status"));
 
-            table.getColumns().addAll(colDate, colTime, colDentist, colService);
+            table.getColumns().addAll(colDate, colTime, colDentist, colService, colStatus);
 
             HBox actionButtons = new HBox(20);
             actionButtons.setAlignment(Pos.CENTER);
@@ -261,11 +264,11 @@ public class Main {
 
         public static class Appointment {
         	private int id;
-            private String date, time, dentist, service;
+            private String date, time, dentist, service, status;
             
-            public Appointment(int id, String date, String time, String dentist, String service) {
+            public Appointment(int id, String date, String time, String dentist, String service, String Status) {
             	this.id = id;
-                this.date = date; this.time = time; this.dentist = dentist; this.service = service;
+                this.date = date; this.time = time; this.dentist = dentist; this.service = service; this.status = Status;
             }
             
             public int getId() { return id; } 
@@ -273,6 +276,7 @@ public class Main {
             public String getTime() { return time; }
             public String getDentist() { return dentist; }
             public String getService() { return service; }
+            public String getStatus() { return status; }
         }
     }
 
