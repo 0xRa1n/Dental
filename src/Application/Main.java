@@ -1,4 +1,4 @@
-package Application;
+package application;
 
 import javafx.application.Application;
 import javafx.collections.FXCollections;
@@ -11,7 +11,7 @@ import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.layout.*;
 import javafx.stage.Stage;
 import java.time.LocalDate;
-
+import auth.Login;
 public class Main {
     public static class App extends Application {
         private BorderPane mainLayout; 
@@ -47,6 +47,15 @@ public class Main {
             Button btnProfile = new Button("Profile");
             Button btnLogout = new Button("Logout");
             btnLogout.getStyleClass().add("btn-danger");
+            
+            btnLogout.setOnAction(e -> {
+            	// 1. Close the current JavaFX window
+            	Stage stage = (Stage) btnLogout.getScene().getWindow();
+            	stage.close(); // close the current window
+            	
+            	// 2. Launch the Swing Login view
+            	Login.main(new String[0]); // launch the main method of the Login class (since it is declared as String[0] args, we should simply pass an empty String array)
+            });
             
             header.getChildren().addAll(logo, title, spacer, btnProfile, btnLogout);
             mainLayout.setTop(header);

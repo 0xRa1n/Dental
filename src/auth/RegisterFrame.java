@@ -1,4 +1,4 @@
-package gui;
+package auth;
 
 import javax.swing.*;
 import java.awt.*;

@@ -1,15 +1,20 @@
-package gui;
+package auth;
 
 import javax.swing.*;
+
+import application.Main;
+
 import java.awt.*;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import passanduser.Dao;
 import model.User;
-import Application.Main;
+
+import application.Main;
+import admin.AdminUI;
 
 public class Login extends JDialog {
-
+	private static boolean isJavaFxLaunched = false;
     private static final long serialVersionUID = 1L;
     private JTextField txtUsername;
     private JPasswordField txtPassword;
@@ -223,26 +228,55 @@ public class Login extends JDialog {
         try {
             User user = Dao.login(username, password);
             if (user != null) {
-//                JOptionPane.showMessageDialog(this,
-//                    "✅ Login Successful!\nWelcome " + user.getFull_name() +
-//                    "\nRole: " + user.getRole().toUpperCase(),
-//                    "Welcome", JOptionPane.INFORMATION_MESSAGE);
-//                dispose();
-            	// call the function from application.Main to show the dashboard view
-            	// 1. Close the login dialog
-                dispose();
+                System.out.println(user.getRole().toUpperCase());
                 
-                // 2. Close the parent hidden JFrame so the Swing thread can terminate
+                // Prevent JavaFX from shutting down when the last window is closed
+                javafx.application.Platform.setImplicitExit(false); 
+
+                if (user.getRole().toUpperCase().equals("PATIENT")) {
+                    if (!isJavaFxLaunched) {
+                        isJavaFxLaunched = true;
+                        new Thread(() -> { // what thread does is for example logging out, without this it will return an IllegalStateException because JavaFX is not running, but with this it will start the JavaFX runtime and then run the code inside the run method, which is to launch the Main class of the application package (which is the JavaFX application)
+                            application.Main.main(new String[0]);
+                        }).start();
+                    } else {
+                        javafx.application.Platform.runLater(() -> { // then, if the JavaFX runtime is already running, we can simply run the code inside the run method, which is to launch the Main class of the application package (which is the JavaFX application)
+                             try {
+                                 new application.Main.App().start(new javafx.stage.Stage());
+                             } catch (Exception ex) {
+                                 ex.printStackTrace();
+                             }
+                        });
+                    }
+                } else if (user.getRole().toUpperCase().equals("ADMIN")) {
+                    if (!isJavaFxLaunched) {
+                        isJavaFxLaunched = true;
+                        new Thread(() -> {
+                            admin.AdminUI.main(new String[0]);
+                        }).start();
+                    } else {
+                        javafx.application.Platform.runLater(() -> {
+                             try {
+                                 new admin.AdminUI().start(new javafx.stage.Stage());
+                             } catch (Exception ex) {
+                                 ex.printStackTrace();
+                             }
+                        });
+                    }
+                } else {
+                    JOptionPane.showMessageDialog(this,
+                        "❌ Unrecognized user role: " + user.getRole(),
+                        "Login Failed", JOptionPane.ERROR_MESSAGE);
+                    return; 
+                }
+
+                // Close the login window
+                dispose();
                 Window parentWindow = SwingUtilities.getWindowAncestor(this);
                 if (parentWindow != null) {
                     parentWindow.dispose();
                 }
 
-                // 3. Launch the JavaFX application in a new thread
-                new Thread(() -> {
-                    Main.main(new String[0]);
-                }).start();
-                
             } else {
                 JOptionPane.showMessageDialog(this,
                     "❌ Invalid username or password!",
@@ -257,6 +291,7 @@ public class Login extends JDialog {
                 "Error", JOptionPane.ERROR_MESSAGE);
         }
     }
+
 
     public static void main(String[] args) {
         try {

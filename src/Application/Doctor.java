@@ -1,4 +1,4 @@
-package Application;
+package application;
 
 import javafx.application.Application;
 import javafx.beans.property.SimpleStringProperty;
@@ -10,6 +10,7 @@ import javafx.scene.control.*;
 import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.layout.*;
 import javafx.stage.Stage;
+import auth.Login;
 
 public class Doctor extends Application {
 
@@ -26,7 +27,11 @@ public class Doctor extends Application {
         
         Button btnLogout = new Button("Logout");
         btnLogout.setStyle("-fx-background-color: white; -fx-border-color: #2e7d32;");
-        btnLogout.setOnAction(e -> stage.close());
+        btnLogout.setOnAction(e -> {
+			Stage s = (Stage) btnLogout.getScene().getWindow();
+			s.close();
+			Login.main(new String[0]);
+		});
 
         HBox header = new HBox(15, logo, brand, spacer, btnLogout);
         header.setAlignment(Pos.CENTER_LEFT);
