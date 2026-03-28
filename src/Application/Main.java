@@ -19,6 +19,7 @@ import java.sql.ResultSet;
 import java.time.LocalDate;
 
 import auth.Login;
+import functions.applicationFunctions;
 
 public class Main {
     public static class App extends Application {
@@ -127,7 +128,7 @@ public class Main {
             actionButtons.setAlignment(Pos.CENTER);
             
             Button btnBook = new Button("Book");
-            Button btnResched = new Button("Reschedule");
+            Button btnResched = new Button("Edit");
 
             btnBook.setOnAction(e -> showBookingView(null));
             
@@ -196,14 +197,16 @@ public class Main {
             btnConfirm.setOnAction(e -> {
             	if (existingAppointment != null) { // based on the previous statement, this means we're rescheduling an existing appointment
 					Dao.updateBooking("test", datePicker.getValue().toString(), timeBox.getValue(), dentistBox.getValue(), serviceBox.getValue());
+                    applicationFunctions.showDialog("INFORMATION", "Successfully rescheduled appointment.", "Reschedule", "Reschedule Successful");
 					showDashboardView(); // Re-loads the view, which will now pull the updated data from DB
 				} else if(datePicker.getValue() != null && serviceBox.getValue() != null) {
+                    applicationFunctions.showDialog("INFORMATION", "Successfully booked appointment.", "Booking", "Booking Confirmed");
                     Dao.bookAppointment("test", datePicker.getValue().toString(), timeBox.getValue(), dentistBox.getValue(), serviceBox.getValue());
                     showDashboardView(); // Re-loads the view, which will now pull the new data from DB
                 } else {
 					Alert alert = new Alert(Alert.AlertType.WARNING);
 					alert.setContentText("Please fill in all required fields.");
-					alert.show();
+					alert.showAndWait();
 				}
             });
 
@@ -214,8 +217,11 @@ public class Main {
                 btnDelete.getStyleClass().add("btn-danger");
                 
                 btnDelete.setOnAction(e -> {
-                	// You can now access existingAppointment.getId() here to pass to Dao.deleteBooking()
-                	Dao.deleteBooking(existingAppointment.getId());
+                	boolean confirmDelete = applicationFunctions.showConfirmationDialog("Are you sure you want to delete this appointment?", "Delete Appointment", "Confirm Deletion");
+					if (confirmDelete) {
+						Dao.deleteBooking(existingAppointment.getId()); // Pass the appointment ID to delete the correct record
+						applicationFunctions.showDialog("CONFIRMATION", "Successfully deleted appointment.", "Delete", "Deletion Successful");
+					}
 					showDashboardView(); // Re-loads the view, which will now pull the updated data from DB
 				});	
                 
