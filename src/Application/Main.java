@@ -34,8 +34,7 @@ public class Main {
 
             Scene scene = new Scene(mainLayout, 1000, 700);
             scene.getStylesheets().add(getClass().getResource("application.css").toExternalForm());
-            
-            primaryStage.setMaximized(true); 
+
             primaryStage.setScene(scene);
             primaryStage.show();
         }

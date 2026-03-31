@@ -12,13 +12,95 @@ import javafx.beans.property.SimpleStringProperty;
 import javafx.util.Callback;
 import auth.Login;
 import admin.FileMaintenance;
+import passanduser.Dbconnection;
+
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 public class AdminUI extends Application {
 
     private TableView<Appointment> table = new TableView<>();
+    
+    // function to read appointments from databas
+    // 
+    
+    private void loadAppointments() {
+    	// clear the table first
+    	table.getItems().clear();
+    	
+    	String sql = "SELECT date, serviceTime, username, dentist, dentalService FROM appointments";
+    	
+    	try (Connection con = Dbconnection.getConnection();
+                PreparedStatement ps = con.prepareStatement(sql)){
+    		if(con != null) {
+    			try (ResultSet rs = ps.executeQuery()) {
+					while(rs.next()) {
+						String date = rs.getString("date");
+						String time = rs.getString("serviceTime");
+						String patient = rs.getString("username");
+						String dentist = rs.getString("dentist");
+						String service = rs.getString("dentalService");
+						
+						table.getItems().add(new Appointment(date, time, patient, dentist, service));
+					}
+    				
+    			} catch(Exception e) {
+    				System.out.println("❌ Failed to load appointments: " + e.getMessage());
+    			}
+    		} 
+    	} catch (Exception e) {
+            System.out.println("❌ Failed to load appointments: " + e.getMessage());
+        }
+    }
+    
+    private void loadPatientCount(Label label) {
+		String sql = "SELECT COUNT(*) FROM users";
+		
+		try (Connection con = Dbconnection.getConnection();
+				PreparedStatement ps = con.prepareStatement(sql)){
+			if(con != null) {
+				try (ResultSet rs = ps.executeQuery()) {
+					if(rs.next()) {
+						System.out.println(rs);
+						int total = rs.getInt(1); // in order to get the count of the patients, we need to set it to index 1, so that it could return the total of patients 
+						label.setText("Total patients: " + total);
+					}
+					
+				} catch(Exception e) {
+					System.out.println("❌ Failed to load patient count: " + e.getMessage());
+				}
+			} 
+		} catch (Exception e) {
+			System.out.println("❌ Failed to load patient count: " + e.getMessage());
+		}
+	}
 
+    
+    private void loadAppointmentCount(Label label) {
+    	String sql = "SELECT COUNT(*) FROM appointments";
+		try (Connection con = Dbconnection.getConnection();
+				PreparedStatement ps = con.prepareStatement(sql)){
+			if(con != null) {
+				try (ResultSet rs = ps.executeQuery()) {
+					if(rs.next()) {
+						int total = rs.getInt(1); // in order to get the count of the appointments, we need to set it to index 1, so that it could return the total of appointments 
+						label.setText("Total appointments: " + total);
+					}
+					
+				} catch(Exception e) {
+					System.out.println("❌ Failed to load appointment count: " + e.getMessage());
+				}
+			} 
+		} catch (Exception e) {
+			System.out.println("❌ Failed to load appointment count: " + e.getMessage());
+		}
+    }
     @Override
     public void start(Stage stage) {
         stage.setTitle("CARES Dashboard");
+        stage.setWidth(900);
+        stage.setHeight(750);
+        loadAppointments();
 
         BorderPane root = new BorderPane();
         root.setStyle("-fx-background-color:#e6e6e6; -fx-border-color:green; -fx-border-width:2;");
@@ -64,20 +146,25 @@ public class AdminUI extends Application {
         reportsBox.setStyle("-fx-border-color:green;");
         reportsBox.setAlignment(Pos.CENTER);
         reportsBox.setMaxWidth(Double.MAX_VALUE);
+//
+//        Label totalPatients = new Label("Total patients: 120");
+        
+        // count all the patients in the database and display it in the label
 
-        Label totalPatients = new Label("Total patients: 120");
-        Label appointmentsToday = new Label("Appointments Today: 25");
-        Label more = new Label("And so on....");
+        Label totalPatients = new Label("Total patients: Loading...");
+        loadPatientCount(totalPatients);
+        
+        Label appointmentsToday = new Label("Total appointments: Loading...");
+        loadAppointmentCount(appointmentsToday);
 
-        for (Label lbl : new Label[]{totalPatients, appointmentsToday, more}) {
+        for (Label lbl : new Label[]{totalPatients, appointmentsToday}) {
             lbl.setMaxWidth(Double.MAX_VALUE);
             lbl.setAlignment(Pos.CENTER);
         }
 
         reportsBox.getChildren().addAll(
                 totalPatients,
-                appointmentsToday,
-                more
+                appointmentsToday
         );
 
         // ===== TABLE =====
@@ -132,9 +219,9 @@ public class AdminUI extends Application {
         table.setMaxHeight(Double.MAX_VALUE);
         table.setStyle("-fx-border-color:green;");
 
-        table.getItems().add(
-                new Appointment("3/19/26", "9:00 AM", "SiPatient", "Dr. Ewan", "Cleaning")
-        );
+//        table.getItems().add(
+//                new Appointment("3/19/26", "9:00 AM", "SiPatient", "Dr. Ewan", "Cleaning")
+//        );
 
         // ===== BUTTONS =====
         Button editBtn = new Button("Edit Appointment");
@@ -240,9 +327,19 @@ public class AdminUI extends Application {
         loginPane.setPadding(new Insets(20));
 //
         patients.setOnAction(e -> {
-			FileMaintenance.main(new String[0]);
+            try {
+                new FileMaintenance().start(new Stage()); // since we don't want to close the dashboard, we open a new stage for file maintenance (stage means window)
+            } catch (Exception ex) {
+                ex.printStackTrace();
+            }
         });
-//        doctors.setOnAction(e -> stage.setScene(fileScene));
+        doctors.setOnAction(e -> {
+            try {
+                new FileMaintenance().start(new Stage()); // since we don't want to close the dashboard, we open a new stage for file maintenance (stage means window)
+            } catch (Exception ex) {
+                ex.printStackTrace();
+            }
+        });
 //        admins.setOnAction(e -> stage.setScene(fileScene));
 //        services.setOnAction(e -> stage.setScene(fileScene));
 //        
