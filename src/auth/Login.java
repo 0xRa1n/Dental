@@ -249,11 +249,11 @@ public class Login extends JDialog {
                 javafx.application.Platform.runLater(() -> {
                      try {
                          if (role.equals("PATIENT")) {
-                             new Application.Main.App().start(new javafx.stage.Stage());
+                             new application.Main.App().start(new javafx.stage.Stage());
                          } else if (role.equals("ADMIN")) {
                              new admin.AdminUI().start(new javafx.stage.Stage());
                          } else if (role.equals("DOCTOR")) {
-                             Application.Doctor doc = new Application.Doctor();
+                        	 application.Doctor doc = new application.Doctor();
                              doc.start(new javafx.stage.Stage(), user.getUsername());
                          } else {
                              // Must run Swing dialog logically back on EDT, or just sysout
