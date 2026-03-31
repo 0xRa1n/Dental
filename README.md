@@ -21,6 +21,7 @@ CREATE TABLE IF NOT EXISTS appointments (
   	serviceTime TEXT NOT NULL,
   	dentist TEXT NOT NULL,
   	dentalService TEXT NOT NULL,
-    status TEXT NOT NULL
+    status TEXT NOT NULL,
+	notes LONGTEXT NOT NULL
 );
 ```

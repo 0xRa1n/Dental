@@ -4,6 +4,65 @@ import java.sql.*;
 import model.User;
 import java.util.Optional;
 public class Dao {
+	public static String getAppointmentNotes(int id) {
+		Connection con = null;
+		PreparedStatement ps = null;
+		ResultSet rs = null;
+		
+		try {
+			con = Dbconnection.getConnection();
+			if (con == null) {
+				System.out.println("❌ Database connection failed!");
+				return null;
+			}
+
+			String sql = "SELECT notes FROM appointments WHERE id=?";
+			ps = con.prepareStatement(sql);
+			ps.setInt(1, id);
+			rs = ps.executeQuery();	
+
+			if (rs.next()) {
+				String notes = rs.getString("notes");
+				return notes;
+			} else {
+				System.out.println("❌ No appointment found with ID " + id);
+			}
+
+		} catch (Exception e) {
+			System.out.println("❌ Get Notes Error: " + e.getMessage());
+		} finally {
+			closeSafely(rs, ps, con);
+		}
+		return null;
+	}
+	
+	public static void addAppointmentNotes(int id, String notes) {
+		Connection con = null;
+		PreparedStatement ps = null;
+		
+		try {
+			con = Dbconnection.getConnection();
+			if (con == null) {
+				System.out.println("❌ Database connection failed!");
+				return;
+			}
+
+			String sql = "UPDATE appointments SET notes=? WHERE id=?";
+			ps = con.prepareStatement(sql);
+			ps.setString(1, notes);
+			ps.setInt(2, id);
+
+			boolean success = ps.executeUpdate() > 0;
+			if(success) System.out.println("✅ Notes added for appointment ID " + id);
+
+		} catch (Exception e) {
+			System.out.println("❌ Add Notes Error: " + e.getMessage());
+		} finally {
+			closeSafely(null, ps, con);
+		}
+		
+	}
+	
 	public static void updateAppointmentStatus(int id, String newStatus) {
 		Connection con = null;
 		PreparedStatement ps = null;
@@ -97,7 +156,7 @@ public class Dao {
 				return;
 			}
 
-			String sql = "INSERT INTO appointments (username, date, serviceTime, dentist, dentalService, status) VALUES (?, ?, ?, ?, ?, ?)";
+			String sql = "INSERT INTO appointments (username, date, serviceTime, dentist, dentalService, status, notes) VALUES (?, ?, ?, ?, ?, ?, ?)";
 			ps = con.prepareStatement(sql);
 			ps.setString(1, username);
 			ps.setString(2, date);
@@ -105,7 +164,7 @@ public class Dao {
 			ps.setString(4, dentist);
 			ps.setString(5, dentalService);
 			ps.setString(6, "Pending");
-			
+			ps.setString(7, ""); // Default empty notes
 
 			boolean success = ps.executeUpdate() > 0;
 			if(success) System.out.println("✅ Appointment booked for " + username + " with Dr. " + dentist + " on " + date);
