@@ -18,14 +18,24 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.time.LocalDate;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import auth.Login;
 import functions.applicationFunctions;
 
 public class Main {
     public static class App extends Application {
+    	
         private BorderPane mainLayout; 
         private ObservableList<Appointment> appointmentList = FXCollections.observableArrayList();
 
+        public static class DoctorAvailability {
+            public List<String> recurringDays = new ArrayList<>();
+            public List<LocalDate> blockedDates = new ArrayList<>();
+            public String startTime;
+            public String endTime;
+        }
         @Override
         public void start(Stage primaryStage) {
             mainLayout = new BorderPane();
@@ -37,6 +47,20 @@ public class Main {
 
             primaryStage.setScene(scene);
             primaryStage.show();
+        }
+        
+        private int parseHour(String time) {
+            String[] parts = time.split(":");
+            int hour = Integer.parseInt(parts[0]);
+            if (time.contains("PM") && hour != 12) hour += 12;
+            if (time.contains("AM") && hour == 12) hour = 0;
+            return hour;
+        }
+
+        private String formatHour(int h) {
+            int hour = h % 12;
+            if (hour == 0) hour = 12;
+            return String.format("%02d:00 %s", hour, h < 12 ? "AM" : "PM");
         }
 
         private void setupHeader() {
@@ -173,93 +197,148 @@ public class Main {
             mainLayout.setCenter(content); 
         }
 
-        public void showBookingView(Appointment existingAppointment) {
-            VBox formBox = new VBox(25);
-            formBox.getStyleClass().add("booking-border-box");
-            formBox.setMaxWidth(600);
-            formBox.setAlignment(Pos.CENTER);
-
-            String titleText = (existingAppointment == null) ? "Book Appointment" : "Reschedule Appointment";
-            Label formTitle = new Label(titleText);
-            formTitle.getStyleClass().add("headline-main");
-
-            GridPane grid = new GridPane();
-            grid.setVgap(15); grid.setHgap(15);
-            grid.setAlignment(Pos.CENTER);
-
-            ComboBox<String> serviceBox = new ComboBox<>(FXCollections.observableArrayList(
-                "Dental Checkup", "Tooth Cleaning", "Tooth Extraction", "Dental Filling", "Root Canal", "Braces"
-            ));
-            
-            ComboBox<String> dentistBox = new ComboBox<>(FXCollections.observableArrayList(
-                "Dr. Maria Santos", "Dr. Ricardo Reyes", "Dr. Elena Cruz"
-            ));
-            
-            DatePicker datePicker = new DatePicker();
-            
-            ComboBox<String> timeBox = new ComboBox<>(FXCollections.observableArrayList(
-                "09:00 AM", "10:00 AM", "11:00 AM", "01:00 PM", "02:00 PM", "03:00 PM", "04:00 PM"
-            ));
-
-            if (existingAppointment != null) {
-                serviceBox.setValue(existingAppointment.getService());
-                dentistBox.setValue(existingAppointment.getDentist()); // Display name is stored in the Appointment class
-                timeBox.setValue(existingAppointment.getTime());
-                datePicker.setValue(LocalDate.parse(existingAppointment.getDate()));
-            }
-
-            grid.addRow(0, new Label("Service:"), serviceBox);
-            grid.addRow(1, new Label("Dentist:"), dentistBox);
-            grid.addRow(2, new Label("Date:"), datePicker);
-            grid.addRow(3, new Label("Time:"), timeBox);
-
-            HBox formActions = new HBox(15);
-            formActions.setAlignment(Pos.CENTER);
-
-            Button btnConfirm = new Button("Confirm");
-            Button btnCancel = new Button("Cancel");
-
-            btnConfirm.setOnAction(e -> {
-            	if (existingAppointment != null) { 
-					Dao.updateBooking("test", datePicker.getValue().toString(), timeBox.getValue(), getDbDentistName(dentistBox.getValue()), serviceBox.getValue(), null);
-                    applicationFunctions.showDialog("INFORMATION", "Successfully rescheduled appointment.", "Reschedule", "Reschedule Successful");
-					showDashboardView(); 
-				} else if(datePicker.getValue() != null && serviceBox.getValue() != null) {
-                    applicationFunctions.showDialog("INFORMATION", "Successfully booked appointment.", "Booking", "Booking Confirmed");
-                    Dao.bookAppointment("test", datePicker.getValue().toString(), timeBox.getValue(), getDbDentistName(dentistBox.getValue()), serviceBox.getValue());
-                    showDashboardView(); 
-                } else {
-					Alert alert = new Alert(Alert.AlertType.WARNING);
-					alert.setContentText("Please fill in all required fields.");
-					alert.showAndWait();
-				}
-            });
-
-            btnCancel.setOnAction(e -> showDashboardView());
-
-            if(existingAppointment != null) {
-                Button btnDelete = new Button("Delete");
-                btnDelete.getStyleClass().add("btn-danger");
-                
-                btnDelete.setOnAction(e -> {
-                	boolean confirmDelete = applicationFunctions.showConfirmationDialog("Are you sure you want to delete this appointment?", "Delete Appointment", "Confirm Deletion");
-					if (confirmDelete) {
-						Dao.deleteBooking(existingAppointment.getId()); 
-						applicationFunctions.showDialog("CONFIRMATION", "Successfully deleted appointment.", "Delete", "Deletion Successful");
-					}
-					showDashboardView(); 
-				});	
-                
-            	formActions.getChildren().addAll(btnConfirm, btnCancel, btnDelete);
-            } else {
-            	formActions.getChildren().addAll(btnConfirm, btnCancel);
-            }
-            formBox.getChildren().addAll(formTitle, grid, formActions);
-            
-            StackPane container = new StackPane(formBox);
-            container.setPadding(new Insets(30));
-            mainLayout.setCenter(container);
-        }
+		public void showBookingView(Appointment existingAppointment) {
+		    VBox formBox = new VBox(25);
+		    formBox.getStyleClass().add("booking-border-box");
+		    formBox.setMaxWidth(600);
+		    formBox.setAlignment(Pos.CENTER);
+		
+		    String titleText = (existingAppointment == null) ? "Book Appointment" : "Reschedule Appointment";
+		    Label formTitle = new Label(titleText);
+		    formTitle.getStyleClass().add("headline-main");
+		
+		    GridPane grid = new GridPane();
+		    grid.setVgap(15); grid.setHgap(15);
+		    grid.setAlignment(Pos.CENTER);
+		
+		    ComboBox<String> serviceBox = new ComboBox<>(FXCollections.observableArrayList(
+		        "Dental Checkup", "Tooth Cleaning", "Tooth Extraction", "Dental Filling", "Root Canal", "Braces"
+		    ));
+		    
+		    ComboBox<String> dentistBox = new ComboBox<>(FXCollections.observableArrayList(
+		        "Dr. Maria Santos", "Dr. Ricardo Reyes", "Dr. Elena Cruz"
+		    ));
+		    
+		    DatePicker datePicker = new DatePicker();
+		    datePicker.setDisable(true); // Disabled until dentist is chosen
+		    
+		    ComboBox<String> timeBox = new ComboBox<>();
+		    timeBox.setDisable(true); // Disabled until dentist is chosen
+		
+		    // --- NEW LOGIC: Listener to update constraints when a dentist is selected ---
+		    dentistBox.getSelectionModel().selectedItemProperty().addListener((obs, oldVal, newVal) -> {
+		        if (newVal != null) {
+		            String dbName = getDbDentistName(newVal);
+		            DoctorAvailability avail = Dao.getDoctorAvailability(dbName);
+		            
+		            // Enable inputs
+		            datePicker.setDisable(false);
+		            timeBox.setDisable(false);
+		            
+		            // 1. Restrict DatePicker (Blocked Dates & Recurring Days)
+		            datePicker.setDayCellFactory(dp -> new DateCell() {
+		                @Override
+		                public void updateItem(LocalDate item, boolean empty) {
+		                    super.updateItem(item, empty);
+		                    if (empty || item == null) return;
+		                    
+		                    // Disable past dates
+		                    if (item.isBefore(LocalDate.now())) { // isBefore checks if the date is in the past, if it is true, set the days before today to be disabled
+		                        setDisable(true);
+		                        setStyle("-fx-background-color: #e0e0e0;");
+		                        return;
+		                    }
+		                    
+		                    String dayName = item.getDayOfWeek().name();
+		                    
+		                    // If the day is not in recurring days OR is in blocked dates, disable it
+		                    if (!avail.recurringDays.contains(dayName) || avail.blockedDates.contains(item)) { // now, if the day is not in the recurring days list or if the day is in the blocked dates list, disable it
+		                        setDisable(true);
+		                        setStyle("-fx-background-color: #ffcdd2;"); // Visual indicator
+		                    }
+		                }
+		            });
+		
+		            // 2. Populate TimeBox dynamically
+		            timeBox.getItems().clear();
+		            if (avail.startTime != null && avail.endTime != null) {
+		                int startHour = parseHour(avail.startTime);
+		                int endHour = parseHour(avail.endTime);
+		                
+		                for (int h = startHour; h <= endHour; h++) {
+		                    timeBox.getItems().add(formatHour(h)); // e.g. "09:00 AM", "10:00 AM", .... , up until 10 PM, which is 22 in 24-hour format
+		                }
+		            }
+		        }
+		    });
+		
+		    if (existingAppointment != null) { // if the user is rescheduling, pre-populate the form with existing values
+		        serviceBox.setValue(existingAppointment.getService());
+		        dentistBox.setValue(existingAppointment.getDentist()); 
+		        // Note: setting dentistBox value triggers the listener above to enable inputs
+		        datePicker.setValue(LocalDate.parse(existingAppointment.getDate()));
+		        timeBox.setValue(existingAppointment.getTime());
+		    }
+		
+		    grid.addRow(0, new Label("Service:"), serviceBox);
+		    grid.addRow(1, new Label("Dentist:"), dentistBox);
+		    grid.addRow(2, new Label("Date:"), datePicker);
+		    grid.addRow(3, new Label("Time:"), timeBox);
+		
+		    HBox formActions = new HBox(15);
+		    formActions.setAlignment(Pos.CENTER);
+		
+		    Button btnConfirm = new Button("Confirm");
+		    Button btnCancel = new Button("Cancel");
+		
+		    btnConfirm.setOnAction(e -> {
+		        if (existingAppointment != null) { 
+		            Dao.updateBooking("test", datePicker.getValue().toString(), timeBox.getValue(), getDbDentistName(dentistBox.getValue()), serviceBox.getValue(), null);
+		            applicationFunctions.showDialog("INFORMATION", "Successfully rescheduled appointment.", "Reschedule", "Reschedule Successful");
+		            showDashboardView(); 
+		        } else if(datePicker.getValue() != null && serviceBox.getValue() != null && dentistBox.getValue() != null && timeBox.getValue() != null) {
+		            // Check to ensure an invalid date wasn't manually typed
+		            if(datePicker.getEditor().getText().isEmpty() || timeBox.getValue() == null) {
+		                Alert alert = new Alert(Alert.AlertType.WARNING, "Please select a valid date and time from the available options.");
+		                alert.showAndWait();
+		                return;
+		            }
+		            applicationFunctions.showDialog("INFORMATION", "Successfully booked appointment.", "Booking", "Booking Confirmed");
+		            Dao.bookAppointment("test", datePicker.getValue().toString(), timeBox.getValue(), getDbDentistName(dentistBox.getValue()), serviceBox.getValue());
+		            showDashboardView(); 
+		        } else {
+		            Alert alert = new Alert(Alert.AlertType.WARNING);
+		            alert.setContentText("Please fill in all required fields.");
+		            alert.showAndWait();
+		        }
+		    });
+		
+		    btnCancel.setOnAction(e -> showDashboardView());
+		
+		    if(existingAppointment != null) {
+		        Button btnDelete = new Button("Delete");
+		        btnDelete.getStyleClass().add("btn-danger");
+		        
+		        btnDelete.setOnAction(e -> {
+		            boolean confirmDelete = applicationFunctions.showConfirmationDialog("Are you sure you want to delete this appointment?", "Delete Appointment", "Confirm Deletion");
+		            if (confirmDelete) {
+		                Dao.deleteBooking(existingAppointment.getId()); 
+		                applicationFunctions.showDialog("CONFIRMATION", "Successfully deleted appointment.", "Delete", "Deletion Successful");
+		            }
+		            showDashboardView(); 
+		        }); 
+		        
+		        formActions.getChildren().addAll(btnConfirm, btnCancel, btnDelete);
+		    } else {
+		        formActions.getChildren().addAll(btnConfirm, btnCancel);
+		    }
+		    
+		    formBox.getChildren().addAll(formTitle, grid, formActions);
+		    
+		    StackPane container = new StackPane(formBox);
+		    container.setPadding(new Insets(30));
+		    mainLayout.setCenter(container);
+		}
 
         public static class Appointment {
         	private int id;

@@ -1,4 +1,4 @@
-	package Application;
+	package application;
 	
 	import javafx.application.Application;
 	import javafx.beans.property.SimpleStringProperty;
@@ -23,8 +23,57 @@
 	import auth.Login;
 	import functions.applicationFunctions;
 	
-	public class Doctor extends Application {    // Fetch appointments from the database
+	import java.time.*;
+	import java.util.*;
+	
+	public class Doctor extends Application {    
 	    ObservableList<Appointment> patientsBooking = FXCollections.observableArrayList();
+	    private final Set<DayOfWeek> selectedDays = new HashSet<>();
+	    private final Set<LocalDate> blockedDates = new HashSet<>();
+
+	    private DatePicker manageDatePicker;
+	    private ComboBox<String> startTime;
+	    private ComboBox<String> endTime;
+	    
+	    private void updateTimeOptions(ComboBox<String> timeBox) {
+	        timeBox.getItems().clear();
+
+	        int start = parseHour(startTime.getValue());
+	        int end = parseHour(endTime.getValue());
+
+	        for (int h = start; h <= end; h++) {
+	            timeBox.getItems().add(formatHour(h));
+	        }
+	    }
+
+	    private int parseHour(String time) {
+	        String[] parts = time.split(":");
+	        int hour = Integer.parseInt(parts[0]);
+	        if (time.contains("PM") && hour != 12) hour += 12;
+	        if (time.contains("AM") && hour == 12) hour = 0;
+	        return hour;
+	    }
+
+	    private String formatHour(int h) {
+	        int hour = h % 12;
+	        if (hour == 0) hour = 12;
+	        return String.format("%02d:00 %s", hour, h < 12 ? "AM" : "PM");
+	    }
+
+	    private CheckBox createDay(String name, DayOfWeek day) {
+	        CheckBox cb = new CheckBox(name);
+	        cb.setOnAction(e -> {
+	            if (cb.isSelected()) selectedDays.add(day);
+	            else selectedDays.remove(day);
+	        });
+	        return cb;
+	    }
+
+	    private void populateTimes(ComboBox<String> box) {
+	        for (int i = 1; i <= 12; i++) box.getItems().add(String.format("%02d:00 AM", i));
+	        for (int i = 1; i <= 12; i++) box.getItems().add(String.format("%02d:00 PM", i));
+	    }
+	    
 	    // Fetch appointments from the database
 	    private void loadAppointments(String doctorName) {
 	    	patientsBooking.clear();     
@@ -54,6 +103,122 @@
 	            System.out.println("❌ Failed to load appointments: " + e.getMessage());
 	        }
 	    }
+	    
+	    private void manageYourSchedule(String doctorName) {
+	        BorderPane root = new BorderPane();
+	        root.setPadding(new Insets(15));
+
+	        Label title = new Label("Manage Schedule");
+	        title.setStyle("-fx-font-size: 20px; -fx-font-weight: bold;");
+
+	        BorderPane topBar = new BorderPane();
+	        BorderPane.setAlignment(title, Pos.CENTER);
+
+	        root.setTop(topBar);
+
+	        VBox content = new VBox(25);
+	        content.setPadding(new Insets(20));
+	        content.setAlignment(Pos.CENTER);
+
+	        // ===== RECURRING =====
+	        VBox recurringBox = new VBox(10);
+	        recurringBox.setAlignment(Pos.CENTER);
+	        Label recurringLabel = new Label("Recurring Availability (Weekly)");
+	        recurringLabel.setStyle("-fx-font-size: 16px; -fx-font-weight: bold;");
+
+	        GridPane grid = new GridPane();
+	        grid.setHgap(20);
+	        grid.setVgap(10);
+	        grid.setAlignment(Pos.CENTER);
+
+	        grid.add(createDay("Monday", DayOfWeek.MONDAY), 0, 0);
+	        grid.add(createDay("Tuesday", DayOfWeek.TUESDAY), 1, 0);
+	        grid.add(createDay("Wednesday", DayOfWeek.WEDNESDAY), 2, 0);
+	        grid.add(createDay("Thursday", DayOfWeek.THURSDAY), 0, 1);
+	        grid.add(createDay("Friday", DayOfWeek.FRIDAY), 1, 1);
+	        grid.add(createDay("Saturday", DayOfWeek.SATURDAY), 2, 1);
+	        grid.add(createDay("Sunday", DayOfWeek.SUNDAY), 0, 2);
+
+	        recurringBox.getChildren().addAll(recurringLabel, grid);
+
+	        // ===== TIME WINDOW =====
+	        VBox timeBox = new VBox(10);
+	        timeBox.setAlignment(Pos.CENTER);
+	        Label timeLabel = new Label("Time Window");
+	        timeLabel.setStyle("-fx-font-size: 16px; -fx-font-weight: bold;");
+
+	        startTime = new ComboBox<>();
+	        endTime = new ComboBox<>();
+	        populateTimes(startTime);
+	        populateTimes(endTime);
+
+	        startTime.setValue("10:00 AM");
+	        endTime.setValue("07:00 PM");
+
+	        HBox timeRow = new HBox(10, new Label("Start:"), startTime, new Label("End:"), endTime);
+	        timeRow.setAlignment(Pos.CENTER);
+
+	        timeBox.getChildren().addAll(timeLabel, timeRow);
+
+	        // ===== BLOCKED DATES =====
+	        VBox blockedBox = new VBox(10);
+	        blockedBox.setAlignment(Pos.CENTER);
+	        Label blockedLabel = new Label("Blocked Dates");
+	        blockedLabel.setStyle("-fx-font-size: 16px; -fx-font-weight: bold;");
+
+	        manageDatePicker = new DatePicker();
+	        VBox blockedList = new VBox(5);
+	        blockedList.setAlignment(Pos.CENTER);
+
+	        Button addBtn = new Button("+ Add Date");
+	        addBtn.setOnAction(e -> {
+	            LocalDate d = manageDatePicker.getValue();
+	            if (d != null && !blockedDates.contains(d)) {
+	                blockedDates.add(d);
+	                blockedList.getChildren().add(new Label("• " + d));
+	            }
+	        });
+
+	        blockedBox.getChildren().addAll(blockedLabel, manageDatePicker, addBtn, blockedList);
+
+	        content.getChildren().addAll(recurringBox, timeBox, blockedBox);
+	        
+	        ScrollPane scroll = new ScrollPane(content);
+	        scroll.setFitToWidth(true);
+	        scroll.setFitToHeight(true);
+	        scroll.setPannable(true);
+
+	        root.setCenter(scroll);
+	       
+
+	        // Add this code to create and show the new window
+	        Stage scheduleStage = new Stage();
+	        scheduleStage.initModality(Modality.APPLICATION_MODAL);
+	        scheduleStage.setTitle("Manage Schedule");
+	        
+	        Button btnSaveSchedule = new Button("Save Schedule");
+	        btnSaveSchedule.setStyle("-fx-background-color: #2e7d32; -fx-text-fill: white; -fx-padding: 10 20;");
+	        btnSaveSchedule.setOnAction(e -> {
+	            String start = startTime.getValue();
+	            String end = endTime.getValue();
+
+	            // Pass the captured data to your database handler
+	            // Assuming doctorName is accessible or passed into manageYourSchedule
+	            Dao.saveDoctorAvailability(doctorName, selectedDays, start, end, blockedDates);
+
+	            applicationFunctions.showDialog("success", "Schedule successfully updated.", "Success", "Schedule Saved");
+	            scheduleStage.close();
+	        });
+
+	        content.getChildren().add(btnSaveSchedule);
+	        
+	        Scene scene = new Scene(root, 500, 600);
+	        scheduleStage.setScene(scene);
+	        scheduleStage.showAndWait();
+
+
+	    }
+	    
 	    public void start(Stage stage, String doctorName) {
 	    	
 	        Label logo = new Label("logo");
@@ -115,10 +280,12 @@
 	        Button btnUpdate = new Button("Update status");
 	        Button btnEdit = new Button("Edit Note");
 	        Button btnAdd = new Button("Add Note");
+	        Button btnManageSchedule = new Button("Manage your Schedule");
 	        
 	        btnUpdate.setStyle(btnS);
 	        btnEdit.setStyle(btnS);
 	        btnAdd.setStyle(btnS);
+	        btnManageSchedule.setStyle(btnS);
 	
 	        btnUpdate.setOnAction(e -> {
 	            Appointment selected = table.getSelectionModel().getSelectedItem();
@@ -154,7 +321,8 @@
 		            // get the notes for the selected appointment from the database
 		            // read the notes from the database for the selected appointment
 					int appointmentId = Integer.parseInt(selected.getId());
-					String existingNotes = Dao.getAppointmentNotes(appointmentId);					System.out.println("Existing notes for appointment ID " + appointmentId + ": " + existingNotes); // Debugging line
+					String existingNotes = Dao.getAppointmentNotes(appointmentId);					
+					System.out.println("Existing notes for appointment ID " + appointmentId + ": " + existingNotes); // Debugging line
 					TextArea textArea = new TextArea(existingNotes); // Pre-fill with existing notes
 		            textArea.setPromptText("Enter notes for the appointment...");
 		            textArea.setWrapText(true);
@@ -288,8 +456,10 @@
 	                applicationFunctions.showDialog("warning", "Please select an appointment first.", "No Selection", "Warning");
 	            }
 	        });
+	        
+	        btnManageSchedule.setOnAction(e -> manageYourSchedule(doctorName));
 
-	        HBox footer = new HBox(20, btnUpdate, btnEdit, btnAdd);
+	        HBox footer = new HBox(20, btnUpdate, btnEdit, btnAdd, btnManageSchedule);
 	        footer.setAlignment(Pos.CENTER);
 	        footer.setPadding(new Insets(0, 0, 40, 0));
 	

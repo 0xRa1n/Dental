@@ -2,8 +2,123 @@ package passanduser;
 
 import java.sql.*;
 import model.User;
-import java.util.Optional;
+
+import java.time.*;
+import java.util.*;
+
+import application.Main.App.DoctorAvailability;
+
 public class Dao {
+	public static DoctorAvailability getDoctorAvailability(String doctorName) {
+	    DoctorAvailability avail = new DoctorAvailability();
+	    
+	    // Fetch Time Window
+	    String sqlSchedule = "SELECT start_time, end_time FROM doctor_schedule WHERE dentist = ?";
+	    // Fetch Recurring Days
+	    String sqlDays = "SELECT day_of_week FROM doctor_recurring_days WHERE schedule_id IN (SELECT id FROM doctor_schedule WHERE dentist = ?)";
+	    // Fetch Blocked Dates
+	    String sqlBlocked = "SELECT blocked_date FROM doctor_blocked_dates WHERE dentist = ?";
+
+	    try (Connection con = Dbconnection.getConnection()) {
+	        
+	        try (PreparedStatement ps = con.prepareStatement(sqlSchedule)) {
+	            ps.setString(1, doctorName);
+	            ResultSet rs = ps.executeQuery();
+	            if (rs.next()) {
+	                avail.startTime = rs.getString("start_time");
+	                avail.endTime = rs.getString("end_time");
+	            }
+	        }
+
+	        try (PreparedStatement ps = con.prepareStatement(sqlDays)) {
+	            ps.setString(1, doctorName);
+	            ResultSet rs = ps.executeQuery();
+	            while (rs.next()) {
+	                avail.recurringDays.add(rs.getString("day_of_week"));
+	            }
+	        }
+
+	        try (PreparedStatement ps = con.prepareStatement(sqlBlocked)) {
+	            ps.setString(1, doctorName);
+	            ResultSet rs = ps.executeQuery();
+	            while (rs.next()) {
+	                avail.blockedDates.add(LocalDate.parse(rs.getString("blocked_date")));
+	            }
+	        }
+	    } catch (Exception e) {
+	        System.out.println("Error retrieving schedule: " + e.getMessage());
+	    }
+	    return avail;
+	}
+	public static void saveDoctorAvailability(String doctorName, Set<DayOfWeek> days, String start, String end, Set<LocalDate> blocked) {
+	    String deleteSchedule = "DELETE FROM doctor_schedule WHERE dentist = ?";
+	    String deleteDays = "DELETE FROM doctor_recurring_days WHERE schedule_id IN (SELECT id FROM doctor_schedule WHERE dentist = ?)";
+	    String deleteBlocked = "DELETE FROM doctor_blocked_dates WHERE dentist = ?";
+
+	    String insertSchedule = "INSERT INTO doctor_schedule (dentist, start_time, end_time) VALUES (?, ?, ?)";
+	    String insertDay = "INSERT INTO doctor_recurring_days (schedule_id, day_of_week) VALUES (?, ?)";
+	    String insertBlocked = "INSERT INTO doctor_blocked_dates (dentist, blocked_date) VALUES (?, ?)";
+
+	    try (Connection con = Dbconnection.getConnection()) {
+	        con.setAutoCommit(false); // Begin transaction
+
+	        // 1. Clear existing data to prevent duplicates
+	        try (PreparedStatement psDays = con.prepareStatement(deleteDays);
+	             PreparedStatement psSched = con.prepareStatement(deleteSchedule);
+	             PreparedStatement psBlock = con.prepareStatement(deleteBlocked)) {
+
+	            psDays.setString(1, doctorName);
+	            psDays.executeUpdate();
+
+	            psSched.setString(1, doctorName);
+	            psSched.executeUpdate();
+
+	            psBlock.setString(1, doctorName);
+	            psBlock.executeUpdate();
+	        }
+
+	        // 2. Insert new time window
+	        int scheduleId = -1;
+	        try (PreparedStatement psInSched = con.prepareStatement(insertSchedule, PreparedStatement.RETURN_GENERATED_KEYS)) {
+	            psInSched.setString(1, doctorName);
+	            psInSched.setString(2, start);
+	            psInSched.setString(3, end);
+	            psInSched.executeUpdate();
+
+	            try (ResultSet rs = psInSched.getGeneratedKeys()) {
+	                if (rs.next()) {
+	                    scheduleId = rs.getInt(1);
+	                }
+	            }
+	        }
+
+	        // 3. Insert recurring days
+	        if (scheduleId != -1) {
+	            try (PreparedStatement psInDay = con.prepareStatement(insertDay)) {
+	                for (DayOfWeek day : days) {
+	                    psInDay.setInt(1, scheduleId);
+	                    psInDay.setString(2, day.name());
+	                    psInDay.addBatch();
+	                }
+	                psInDay.executeBatch();
+	            }
+	        }
+
+	        // 4. Insert blocked dates
+	        try (PreparedStatement psInBlock = con.prepareStatement(insertBlocked)) {
+	            for (LocalDate date : blocked) {
+	                psInBlock.setString(1, doctorName);
+	                psInBlock.setString(2, date.toString());
+	                psInBlock.addBatch();
+	            }
+	            psInBlock.executeBatch();
+	        }
+
+	        con.commit(); // Commit transaction
+	    } catch (Exception e) {
+	        System.out.println("Error saving schedule: " + e.getMessage());
+	    }
+	}
 	public static String getAppointmentNotes(int id) {
 		Connection con = null;
 		PreparedStatement ps = null;
