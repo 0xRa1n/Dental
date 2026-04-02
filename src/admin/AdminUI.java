@@ -123,9 +123,8 @@ public class AdminUI extends Application {
         MenuItem patients = new MenuItem("Patients");
         MenuItem doctors = new MenuItem("Doctors");
         MenuItem admins = new MenuItem("Admins");
-        MenuItem services = new MenuItem("Services");
 
-        manageBtn.getItems().addAll(patients, doctors, admins, services);
+        manageBtn.getItems().addAll(patients, doctors, admins);
 
         Button logoutBtn = new Button("Logout");
 
@@ -336,9 +335,17 @@ public class AdminUI extends Application {
 //        Scene fileScene = new Scene(filePane, 800, 500);
 
         // ===== LOGIN =====
+        // also the dropdown for the file maintenance should be added here, so that when the user clicks on the file maintenance, it will open a new stage for the file maintenance, and the user can still see the dashboard in the background
         VBox loginPane = new VBox(10);
         loginPane.setPadding(new Insets(20));
-//
+        
+        patients.setOnAction(e -> {
+			try {
+				new FileMaintenance_Patient().start(new Stage()); // since we don't want to close the dashboard, we open a new stage for file maintenance (stage means window)
+			} catch (Exception ex) {
+				ex.printStackTrace();
+			}
+		});
         doctors.setOnAction(e -> {
             try {
                 new FileMaintenance_Doctor().start(new Stage()); // since we don't want to close the dashboard, we open a new stage for file maintenance (stage means window)
@@ -346,9 +353,13 @@ public class AdminUI extends Application {
                 ex.printStackTrace();
             }
         });
-//        admins.setOnAction(e -> stage.setScene(fileScene));
-//        services.setOnAction(e -> stage.setScene(fileScene));
-//        
+        admins.setOnAction(e -> {
+			try {
+				new FileMaintenance_Admin().start(new Stage()); // since we don't want to close the dashboard, we open a new stage for file maintenance (stage means window)
+			} catch (Exception ex) {
+				ex.printStackTrace();
+			}
+		});
         logoutBtn.setOnAction(e -> {
         	Stage s = (Stage) logoutBtn.getScene().getWindow();
 			s.close();
