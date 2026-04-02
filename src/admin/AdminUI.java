@@ -10,18 +10,20 @@ import javafx.stage.Modality;
 import javafx.stage.Stage;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.util.Callback;
-import auth.Login;
-import admin.FileMaintenance_Doctor;
 import passanduser.Dbconnection;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import passanduser.Dao;
+import javafx.collections.FXCollections;
+import javafx.collections.ObservableList;
 
 public class AdminUI extends Application {
 
     private TableView<Appointment> table = new TableView<>();
+    private ObservableList<Appointment> appointments = FXCollections.observableArrayList();
+    private static final int ROWS_PER_PAGE = 15;
     
     // function to read appointments from database and display it in the table
     
@@ -43,7 +45,7 @@ public class AdminUI extends Application {
 						String dentist = rs.getString("dentist");
 						String service = rs.getString("dentalService");
 						
-						table.getItems().add(new Appointment(id, date, time, patient, dentist, service));
+						appointments.add(new Appointment(id, date, time, patient, dentist, service));
 					}
     				
     			} catch(Exception e) {
@@ -101,7 +103,7 @@ public class AdminUI extends Application {
     public void start(Stage stage) {
         stage.setTitle("CARES Dashboard");
         stage.setWidth(900);
-        stage.setHeight(750);
+        stage.setHeight(770);
         loadAppointments();
 
         BorderPane root = new BorderPane();
@@ -210,13 +212,13 @@ public class AdminUI extends Application {
         dentistCol.setCellFactory(centerCell);
         serviceCol.setCellFactory(centerCell);
 
-        String centerStyle = "-fx-alignment: CENTER;";
-        idCol.setStyle(centerStyle);
-        dateCol.setStyle(centerStyle);
-        timeCol.setStyle(centerStyle);
-        patientCol.setStyle(centerStyle);
-        dentistCol.setStyle(centerStyle);
-        serviceCol.setStyle(centerStyle);
+//        String centerStyle = "-fx-alignment: CENTER;";
+//        idCol.setStyle(centerStyle);
+//        dateCol.setStyle(centerStyle);
+//        timeCol.setStyle(centerStyle);
+//        patientCol.setStyle(centerStyle);
+//        dentistCol.setStyle(centerStyle);
+//        serviceCol.setStyle(centerStyle);
 
         table.getColumns().addAll(idCol, dateCol, timeCol, patientCol, dentistCol, serviceCol);
 
@@ -225,9 +227,10 @@ public class AdminUI extends Application {
         table.setMaxHeight(Double.MAX_VALUE);
         table.setStyle("-fx-border-color:green;");
 
-//        table.getItems().add(
-//                new Appointment("3/19/26", "9:00 AM", "SiPatient", "Dr. Ewan", "Cleaning")
-//        );
+        // ===== PAGINATOR =====
+        Pagination pagination = new Pagination((int) Math.ceil(appointments.size() / (double)ROWS_PER_PAGE), 0);
+        pagination.setPageFactory(this::createPage);
+
 
         // ===== BUTTONS =====
         Button editBtn = new Button("Edit Appointment");
@@ -296,7 +299,10 @@ public class AdminUI extends Application {
            if(confirmation) {
         	   functions.applicationFunctions.showDialog("Appointment deleted successfully!", "Deletion Successful", "Success", "INFORMATION");
         	   Dao.deleteBooking(id);
-        	   loadAppointments(); // refresh the table after deletion
+//        	   loadAppointments(); // refresh the table after deletion
+               pagination.setPageCount((int) Math.ceil(appointments.size() / (double)ROWS_PER_PAGE));
+               pagination.setPageFactory(this::createPage);
+               table.refresh();
            }
         });
 
@@ -307,10 +313,10 @@ public class AdminUI extends Application {
 
         // ===== CENTER CONTENT =====
         VBox center = new VBox(15,
-                reportsTitle,   // OUTSIDE
-                reportsBox,     // BOX CONTENT
+                reportsTitle,
+                reportsBox,
                 appTitle,
-                tableWrapper,
+                pagination,
                 btnBox
         );
 
@@ -369,6 +375,19 @@ public class AdminUI extends Application {
         stage.setScene(dashboardScene);
         stage.show();
     }
+    
+    
+    // ===== PAGINATOR PAGE FACTORY =====
+    private VBox createPage(int pageIndex) {
+        int fromIndex = pageIndex * ROWS_PER_PAGE;
+        int toIndex = Math.min(fromIndex + ROWS_PER_PAGE, appointments.size());
+        table.setItems(FXCollections.observableArrayList(appointments.subList(fromIndex, toIndex)));
+
+        VBox box = new VBox(table);
+        VBox.setVgrow(table, Priority.NEVER);
+        return box;
+    }
+
 
     public static void main(String[] args) {
         launch();
