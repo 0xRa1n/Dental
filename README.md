@@ -25,3 +25,24 @@ CREATE TABLE IF NOT EXISTS appointments (
 	notes LONGTEXT NOT NULL
 );
 ```
+
+3. For the doctor's time, schedule, and blocked dates
+```
+CREATE TABLE doctor_schedule (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    dentist VARCHAR(255) NOT NULL,
+    start_time VARCHAR(50) NOT NULL,
+    end_time VARCHAR(50) NOT NULL
+);
+
+CREATE TABLE doctor_recurring_days (
+    schedule_id INTEGER,
+    day_of_week VARCHAR(20),
+    FOREIGN KEY(schedule_id) REFERENCES doctor_schedule(id)
+);
+
+CREATE TABLE doctor_blocked_dates (
+    dentist VARCHAR(255) NOT NULL,
+    blocked_date DATE NOT NULL
+);
+```
