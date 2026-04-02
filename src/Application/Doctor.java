@@ -25,7 +25,8 @@
 	
 	import java.time.*;
 	import java.util.*;
-	
+	import application.Main.App.DoctorAvailability;
+
 	public class Doctor extends Application {    
 	    ObservableList<Appointment> patientsBooking = FXCollections.observableArrayList();
 	    private final Set<DayOfWeek> selectedDays = new HashSet<>();
@@ -60,8 +61,13 @@
 	        return String.format("%02d:00 %s", hour, h < 12 ? "AM" : "PM");
 	    }
 
-	    private CheckBox createDay(String name, DayOfWeek day) {
+	    private CheckBox createDay(String name, DayOfWeek day, List<String> existingDays) {
 	        CheckBox cb = new CheckBox(name);
+	        // Check if the current day exists in the database records
+	        if (existingDays.contains(day.name())) {
+	            cb.setSelected(true);
+	            selectedDays.add(day);
+	        }
 	        cb.setOnAction(e -> {
 	            if (cb.isSelected()) selectedDays.add(day);
 	            else selectedDays.remove(day);
@@ -119,7 +125,16 @@
 	        VBox content = new VBox(25);
 	        content.setPadding(new Insets(20));
 	        content.setAlignment(Pos.CENTER);
+	        
+	        // 1. Fetch all existing data from the database via your existing DAO methods
+	        // Assuming DoctorAvailability is imported correctly in this class
+	        DoctorAvailability avail = Dao.getDoctorAvailability(doctorName); // This method should return an object containing recurringDays, startTime, endTime, and blockedDates
 
+	        // Pre-populate blocked dates from the DAO
+	        if (avail.blockedDates != null) {
+	            blockedDates.addAll(avail.blockedDates);
+	        }
+	        
 	        // ===== RECURRING =====
 	        VBox recurringBox = new VBox(10);
 	        recurringBox.setAlignment(Pos.CENTER);
@@ -131,14 +146,18 @@
 	        grid.setVgap(10);
 	        grid.setAlignment(Pos.CENTER);
 
-	        grid.add(createDay("Monday", DayOfWeek.MONDAY), 0, 0);
-	        grid.add(createDay("Tuesday", DayOfWeek.TUESDAY), 1, 0);
-	        grid.add(createDay("Wednesday", DayOfWeek.WEDNESDAY), 2, 0);
-	        grid.add(createDay("Thursday", DayOfWeek.THURSDAY), 0, 1);
-	        grid.add(createDay("Friday", DayOfWeek.FRIDAY), 1, 1);
-	        grid.add(createDay("Saturday", DayOfWeek.SATURDAY), 2, 1);
-	        grid.add(createDay("Sunday", DayOfWeek.SUNDAY), 0, 2);
-
+	        // Convert the Set/List of recurring days from the DAO to a format the createDay method can check
+	        List<String> existingDaysList = new ArrayList<>(avail.recurringDays);
+	        
+	        // 2. Pass the fetched days to the updated createDay method
+	        grid.add(createDay("Monday", DayOfWeek.MONDAY, existingDaysList), 0, 0);
+	        grid.add(createDay("Tuesday", DayOfWeek.TUESDAY, existingDaysList), 1, 0);
+	        grid.add(createDay("Wednesday", DayOfWeek.WEDNESDAY, existingDaysList), 2, 0);
+	        grid.add(createDay("Thursday", DayOfWeek.THURSDAY, existingDaysList), 0, 1);
+	        grid.add(createDay("Friday", DayOfWeek.FRIDAY, existingDaysList), 1, 1);
+	        grid.add(createDay("Saturday", DayOfWeek.SATURDAY, existingDaysList), 2, 1);
+	        grid.add(createDay("Sunday", DayOfWeek.SUNDAY, existingDaysList), 0, 2);
+	        
 	        recurringBox.getChildren().addAll(recurringLabel, grid);
 
 	        // ===== TIME WINDOW =====
@@ -152,8 +171,18 @@
 	        populateTimes(startTime);
 	        populateTimes(endTime);
 
-	        startTime.setValue("10:00 AM");
-	        endTime.setValue("07:00 PM");
+	        // 2. Set the time ComboBoxes to the fetched values if they exist in the DAO object
+	        if (avail.startTime != null && !avail.startTime.isEmpty()) {
+	            startTime.setValue(avail.startTime);
+	        } else {
+	            startTime.setValue("10:00 AM");
+	        }
+
+	        if (avail.endTime != null && !avail.endTime.isEmpty()) {
+	            endTime.setValue(avail.endTime);
+	        } else {
+	            endTime.setValue("07:00 PM");
+	        }
 
 	        HBox timeRow = new HBox(10, new Label("Start:"), startTime, new Label("End:"), endTime);
 	        timeRow.setAlignment(Pos.CENTER);
@@ -181,6 +210,10 @@
 	        blockedBox.getChildren().addAll(blockedLabel, manageDatePicker, addBtn, blockedList);
 	        
 	        // ==== Choose your available services ====
+	     // Ensure this is called at the beginning of your manageYourSchedule method
+	        List<String> existingServices = Dao.getDoctorServices(doctorName);
+
+	        // ==== Choose your available services ====
 	        VBox servicesBox = new VBox(10);
 	        servicesBox.setAlignment(Pos.CENTER);
 	        Label servicesLabel = new Label("Choose your available services");
@@ -196,13 +229,21 @@
 	        List<String> selectedServices = new ArrayList<>();
 
 	        for (String service : servicesList) {
-	            CheckBox checkBox = new CheckBox(service); // Create a checkbox for each service
-	            CustomMenuItem customMenuItem = new CustomMenuItem(checkBox); // Wrap the checkbox in a CustomMenuItem
-	            customMenuItem.setHideOnClick(false); // customMenuItem's purpose is to allow the checkbox to be toggled without closing the dropdown
+	            CheckBox checkBox = new CheckBox(service); 
 	            
+	            // State Synchronization: Apply database state to UI
+	            if (existingServices.contains(service)) {
+	                checkBox.setSelected(true);
+	                selectedServices.add(service); // Pre-populate the tracking list
+	            }
+
+	            CustomMenuItem customMenuItem = new CustomMenuItem(checkBox); 
+	            customMenuItem.setHideOnClick(false); 
+	            
+	            // Event listener for subsequent user interactions
 	            checkBox.setOnAction(e -> {
 	                if (checkBox.isSelected()) {
-	                    selectedServices.add(service); // Add the service to the selected list when checked
+	                    selectedServices.add(service); 
 	                } else {
 	                    selectedServices.remove(service);
 	                }
