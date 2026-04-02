@@ -120,31 +120,53 @@ public class FileMaintenance_Patient extends Application {
         buttonBox.setAlignment(Pos.CENTER);
 
         // ADD
+//        addBtn.setOnAction(e -> {
+//            Dialog<Patient> dialog = createDialog(null);
+//            dialog.showAndWait().ifPresent(doc -> {
+//                doc.setNo(data.size() + 1);
+//                data.add(doc);
+//            });
+//        });
         addBtn.setOnAction(e -> {
             Dialog<Patient> dialog = createDialog(null);
             dialog.showAndWait().ifPresent(doc -> {
-                doc.setNo(data.size() + 1);
-                data.add(doc);
+                // Discard the manual calculation and dummy object
+                // Force a complete refresh from the database to get the real ID
+                loadPatients(); 
+                table.refresh();
             });
         });
 
         // EDIT
+//        editBtn.setOnAction(e -> {
+//        	Patient selected = table.getSelectionModel().getSelectedItem();
+//            if (selected != null) {
+//                Dialog<Patient> dialog = createDialog(selected);
+//                dialog.showAndWait().ifPresent(updated -> {
+//                	selected.setUsername(updated.getUsername());
+//                    selected.setName(updated.getName());
+//                    selected.setPassword(updated.getPassword());
+//                    selected.setEmail(updated.getEmail());
+//                    table.refresh();
+//                });
+//            } else {
+//                showAlert("Select a user to edit first.");
+//            }
+//        });
+
         editBtn.setOnAction(e -> {
-        	Patient selected = table.getSelectionModel().getSelectedItem();
+            Patient selected = table.getSelectionModel().getSelectedItem();
             if (selected != null) {
                 Dialog<Patient> dialog = createDialog(selected);
                 dialog.showAndWait().ifPresent(updated -> {
-                	selected.setUsername(updated.getUsername());
-                    selected.setName(updated.getName());
-                    selected.setPassword(updated.getPassword());
-                    selected.setEmail(updated.getEmail());
+                    // Force a complete refresh from the database
+                    loadPatients();
                     table.refresh();
                 });
             } else {
                 showAlert("Select a user to edit first.");
             }
         });
-
         // DELETE
         deleteBtn.setOnAction(e -> {
         	Patient selected = table.getSelectionModel().getSelectedItem();

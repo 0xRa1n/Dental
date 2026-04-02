@@ -306,7 +306,7 @@ public class Main {
 		
 		    btnConfirm.setOnAction(e -> {
 		        if (existingAppointment != null) { 
-		            Dao.updateBooking("test", datePicker.getValue().toString(), timeBox.getValue(), getDbDentistName(dentistBox.getValue()), serviceBox.getValue(), null);
+		        	Dao.updateBooking(existingAppointment.getId(), datePicker.getValue().toString(), timeBox.getValue(), getDbDentistName(dentistBox.getValue()), serviceBox.getValue(), null);
 		            applicationFunctions.showDialog("INFORMATION", "Successfully rescheduled appointment.", "Reschedule", "Reschedule Successful");
 		            showDashboardView(); 
 		        } else if(datePicker.getValue() != null && serviceBox.getValue() != null && dentistBox.getValue() != null && timeBox.getValue() != null) {

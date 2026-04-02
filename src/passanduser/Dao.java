@@ -366,37 +366,36 @@ public class Dao {
 		}
 		
 	}
-	public static void updateBooking(String username, String date, String serviceTime, String dentist, String dentalService, String status) {
-		Connection con = null;
-		PreparedStatement ps = null;
-		
-		try {
-			
-			
-			con = Dbconnection.getConnection();
-			if (con == null) {
-				System.out.println("❌ Database connection failed!");
-				return;
-			}
+	public static void updateBooking(int id, String date, String serviceTime, String dentist, String dentalService, String status) {
+        Connection con = null;
+        PreparedStatement ps = null;
+        
+        try {
+            con = Dbconnection.getConnection();
+            if (con == null) {
+                System.out.println("Database connection failed!");
+                return;
+            }
 
-			String sql = "UPDATE appointments SET date=?, serviceTime=?, dentist=?, dentalService=? WHERE username=?";
-			ps = con.prepareStatement(sql);
-			ps.setString(1, date);
-			ps.setString(2, serviceTime);
-			ps.setString(3, dentist);
-			ps.setString(4, dentalService);
-			ps.setString(5, username);
+            // Target the specific row using the primary key 'id'
+            String sql = "UPDATE appointments SET date=?, serviceTime=?, dentist=?, dentalService=?, status=? WHERE id=?";
+            ps = con.prepareStatement(sql);
+            ps.setString(1, date);
+            ps.setString(2, serviceTime);
+            ps.setString(3, dentist);
+            ps.setString(4, dentalService);
+            ps.setString(5, status);
+            ps.setInt(6, id); 
 
-			boolean success = ps.executeUpdate() > 0;
-			if(success) System.out.println("✅ Appointment updated for " + username);
+            boolean success = ps.executeUpdate() > 0;
+            if(success) System.out.println("Appointment updated for ID " + id);
 
-		} catch (Exception e) {
-			System.out.println("❌ Update Error: " + e.getMessage());
-		} finally {
-			closeSafely(null, ps, con);
-		}
-		
-	}
+        } catch (Exception e) {
+            System.out.println("Update Error: " + e.getMessage());
+        } finally {
+            closeSafely(null, ps, con);
+        }
+    }
 	public static void bookAppointment(String username, String date, String serviceTime, String dentist, String dentalService) {
 		Connection con = null;
 		PreparedStatement ps = null;

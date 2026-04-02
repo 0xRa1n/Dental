@@ -26,6 +26,8 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+
+import admin.FileMaintenance_Patient.Patient;
 import application.Main.App.DoctorAvailability;
 
 public class FileMaintenance_Doctor extends Application {
@@ -145,24 +147,47 @@ public class FileMaintenance_Doctor extends Application {
         buttonBox.setAlignment(Pos.CENTER);
 
         // ADD
+//        addBtn.setOnAction(e -> {
+//            Dialog<Doctor> dialog = createDialog(null);
+//            dialog.showAndWait().ifPresent(doc -> {
+//                doc.setNo(data.size() + 1);
+//                data.add(doc);
+//            });
+//        });
+
         addBtn.setOnAction(e -> {
             Dialog<Doctor> dialog = createDialog(null);
             dialog.showAndWait().ifPresent(doc -> {
-                doc.setNo(data.size() + 1);
-                data.add(doc);
+                // Discard the manual calculation and dummy object
+                // Force a complete refresh from the database to get the real ID
+                loadDoctors(); 
+                table.refresh();
             });
         });
-
+        
         // EDIT
+//        editBtn.setOnAction(e -> {
+//            Doctor selected = table.getSelectionModel().getSelectedItem();
+//            if (selected != null) {
+//                Dialog<Doctor> dialog = createDialog(selected);
+//                dialog.showAndWait().ifPresent(updated -> {
+//                	selected.setUsername(updated.getUsername());
+//                    selected.setName(updated.getName());
+//                    selected.setPassword(updated.getPassword());
+//                    selected.setEmail(updated.getEmail());
+//                    table.refresh();
+//                });
+//            } else {
+//                showAlert("Select a user to edit first.");
+//            }
+//        });
         editBtn.setOnAction(e -> {
             Doctor selected = table.getSelectionModel().getSelectedItem();
             if (selected != null) {
                 Dialog<Doctor> dialog = createDialog(selected);
                 dialog.showAndWait().ifPresent(updated -> {
-                	selected.setUsername(updated.getUsername());
-                    selected.setName(updated.getName());
-                    selected.setPassword(updated.getPassword());
-                    selected.setEmail(updated.getEmail());
+                    // Force a complete refresh from the database
+                    loadDoctors();
                     table.refresh();
                 });
             } else {

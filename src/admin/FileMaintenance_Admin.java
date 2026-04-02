@@ -123,28 +123,43 @@ public class FileMaintenance_Admin extends Application {
         addBtn.setOnAction(e -> {
             Dialog<Admin> dialog = createDialog(null);
             dialog.showAndWait().ifPresent(doc -> {
-                doc.setNo(data.size() + 1);
-                data.add(doc);
+                // Discard the manual calculation and dummy object
+                // Force a complete refresh from the database to get the real ID
+                loadAdmin(); 
+                table.refresh();
             });
         });
 
         // EDIT
+//        editBtn.setOnAction(e -> {
+//        	Admin selected = table.getSelectionModel().getSelectedItem();
+//            if (selected != null) {
+//                Dialog<Admin> dialog = createDialog(selected);
+//                dialog.showAndWait().ifPresent(updated -> {
+//                	selected.setUsername(updated.getUsername());
+//                    selected.setName(updated.getName());
+//                    selected.setPassword(updated.getPassword());
+//                    selected.setEmail(updated.getEmail());
+//                    table.refresh();
+//                });
+//            } else {
+//                showAlert("Select a user to edit first.");
+//            }
+//        });
+
         editBtn.setOnAction(e -> {
-        	Admin selected = table.getSelectionModel().getSelectedItem();
+            Admin selected = table.getSelectionModel().getSelectedItem();
             if (selected != null) {
                 Dialog<Admin> dialog = createDialog(selected);
                 dialog.showAndWait().ifPresent(updated -> {
-                	selected.setUsername(updated.getUsername());
-                    selected.setName(updated.getName());
-                    selected.setPassword(updated.getPassword());
-                    selected.setEmail(updated.getEmail());
+                    // Force a complete refresh from the database
+                    loadAdmin();
                     table.refresh();
                 });
             } else {
                 showAlert("Select a user to edit first.");
             }
         });
-
         // DELETE
         deleteBtn.setOnAction(e -> {
         	Admin selected = table.getSelectionModel().getSelectedItem();

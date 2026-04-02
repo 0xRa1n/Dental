@@ -29,9 +29,9 @@ public class AdminUI extends Application {
     
     private void loadAppointments() {
     	// clear the table first
-    	table.getItems().clear();
+    	appointments.clear();
     	
-    	String sql = "SELECT id, date, serviceTime, username, dentist, dentalService FROM appointments";
+    	String sql = "SELECT id, date, serviceTime, username, dentist, dentalService, status FROM appointments";
     	
     	try (Connection con = Dbconnection.getConnection();
                 PreparedStatement ps = con.prepareStatement(sql)){
@@ -44,8 +44,9 @@ public class AdminUI extends Application {
 						String patient = rs.getString("username");
 						String dentist = rs.getString("dentist");
 						String service = rs.getString("dentalService");
+						String status = rs.getString("status");
 						
-						appointments.add(new Appointment(id, date, time, patient, dentist, service));
+						appointments.add(new Appointment(id, date, time, patient, dentist, service, status));
 					}
     				
     			} catch(Exception e) {
@@ -261,23 +262,38 @@ public class AdminUI extends Application {
             TextField patientField = new TextField(selected.patientProperty().get());
             TextField dentistField = new TextField(selected.dentistProperty().get());
             TextField serviceField = new TextField(selected.serviceProperty().get());
+            TextField statusField = new TextField(selected.statusProperty().get()); // you can change this to whatever status you want, or you can add a dropdown for the status in the edit popup
 
             VBox form = new VBox(10,
                     new Label("Date"), dateField,
                     new Label("Time"), timeField,
                     new Label("Patient"), patientField,
                     new Label("Dentist"), dentistField,
-                    new Label("Service"), serviceField
+                    new Label("Service"), serviceField,
+                    new Label("Status"), statusField  // you can change this to whatever status you want, or you can add a dropdown for the status in the edit popup
             );
 
             Button saveBtn = new Button("Save");
 
             saveBtn.setOnAction(ev -> {
-                selected.dateProperty().set(dateField.getText());
-                selected.timeProperty().set(timeField.getText());
-                selected.patientProperty().set(patientField.getText());
-                selected.dentistProperty().set(dentistField.getText());
-                selected.serviceProperty().set(serviceField.getText());
+                // Extract the true database primary key
+                int id = Integer.parseInt(selected.idProperty().get());
+                
+                String date = dateField.getText();
+                String time = timeField.getText();
+                String dentist = dentistField.getText();
+                String service = serviceField.getText();
+                String status = statusField.getText(); 
+                
+                // Execute the update against the specific ID
+                Dao.updateBooking(id, date, time, dentist, service, status);
+                
+                loadAppointments(); 
+                
+                // Rebuild the paginator to reflect the fresh data
+                pagination.setPageCount((int) Math.ceil(appointments.size() / (double)ROWS_PER_PAGE));
+                pagination.setPageFactory(AdminUI.this::createPage);
+                
                 table.refresh();
                 popup.close();
             });
@@ -297,9 +313,12 @@ public class AdminUI extends Application {
             int id = Integer.parseInt(selected.idProperty().get());
             boolean confirmation = functions.applicationFunctions.showConfirmationDialog("Are you sure you want to delete this appointment?", "Confirm Deletion", "Delete Appointment");
            if(confirmation) {
-        	   functions.applicationFunctions.showDialog("Appointment deleted successfully!", "Deletion Successful", "Success", "INFORMATION");
         	   Dao.deleteBooking(id);
-//        	   loadAppointments(); // refresh the table after deletion
+        	   functions.applicationFunctions.showDialog("Appointment deleted successfully!", "Deletion Successful", "Success", "INFORMATION");
+
+        	   loadAppointments(); // refresh the table after deletion
+        	   loadAppointmentCount(appointmentsToday); // refresh the appointment count after deletion
+        	   
                pagination.setPageCount((int) Math.ceil(appointments.size() / (double)ROWS_PER_PAGE));
                pagination.setPageFactory(this::createPage);
                table.refresh();
@@ -394,15 +413,16 @@ public class AdminUI extends Application {
     }
 
     public static class Appointment {
-        private SimpleStringProperty ID, date, time, patient, dentist, service;
+        private SimpleStringProperty ID, date, time, patient, dentist, service, status;
 
-        public Appointment(int I, String d, String t, String p, String den, String s) {
+        public Appointment(int I, String d, String t, String p, String den, String s, String stat) {
         	ID = new SimpleStringProperty(String.valueOf(I));
             date = new SimpleStringProperty(d);
             time = new SimpleStringProperty(t);
             patient = new SimpleStringProperty(p);
             dentist = new SimpleStringProperty(den);
             service = new SimpleStringProperty(s);
+            status = new SimpleStringProperty(stat);
         }
         
         
@@ -413,5 +433,6 @@ public class AdminUI extends Application {
         public SimpleStringProperty patientProperty() { return patient; }
         public SimpleStringProperty dentistProperty() { return dentist; }
         public SimpleStringProperty serviceProperty() { return service; }
+        public SimpleStringProperty statusProperty() { return status; }
     }
 }
