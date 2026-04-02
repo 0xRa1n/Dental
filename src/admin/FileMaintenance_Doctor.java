@@ -14,7 +14,7 @@ import javafx.stage.Stage;
 
 import java.io.*;
 
-public class FileMaintenance extends Application {
+public class FileMaintenance_Doctor extends Application {
 
     // Data model
     public static class Doctor {

@@ -21,7 +21,7 @@ public class applicationFunctions {
     }
     public static boolean showConfirmationDialog(String content, String title, String header) {
     	Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
-        alert.setContentText("Do you want to delete this appointment?.");
+        alert.setContentText(content);
         alert.showAndWait();
         
         if(alert.getResult() == ButtonType.OK) {

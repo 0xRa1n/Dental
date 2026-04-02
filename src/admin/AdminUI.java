@@ -11,37 +11,39 @@ import javafx.stage.Stage;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.util.Callback;
 import auth.Login;
-import admin.FileMaintenance;
+import admin.FileMaintenance_Doctor;
 import passanduser.Dbconnection;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import passanduser.Dao;
+
 public class AdminUI extends Application {
 
     private TableView<Appointment> table = new TableView<>();
     
-    // function to read appointments from databas
-    // 
+    // function to read appointments from database and display it in the table
     
     private void loadAppointments() {
     	// clear the table first
     	table.getItems().clear();
     	
-    	String sql = "SELECT date, serviceTime, username, dentist, dentalService FROM appointments";
+    	String sql = "SELECT id, date, serviceTime, username, dentist, dentalService FROM appointments";
     	
     	try (Connection con = Dbconnection.getConnection();
                 PreparedStatement ps = con.prepareStatement(sql)){
     		if(con != null) {
     			try (ResultSet rs = ps.executeQuery()) {
 					while(rs.next()) {
+						int id = rs.getInt("id");
 						String date = rs.getString("date");
 						String time = rs.getString("serviceTime");
 						String patient = rs.getString("username");
 						String dentist = rs.getString("dentist");
 						String service = rs.getString("dentalService");
 						
-						table.getItems().add(new Appointment(date, time, patient, dentist, service));
+						table.getItems().add(new Appointment(id, date, time, patient, dentist, service));
 					}
     				
     			} catch(Exception e) {
@@ -172,6 +174,9 @@ public class AdminUI extends Application {
         appTitle.setStyle("-fx-padding:5; -fx-font-weight:bold;");
         appTitle.setMaxWidth(Double.MAX_VALUE);
         appTitle.setAlignment(Pos.CENTER);
+        
+        TableColumn<Appointment, String> idCol = new TableColumn<>("ID");
+        idCol.setCellValueFactory(data -> data.getValue().idProperty());
 
         TableColumn<Appointment, String> dateCol = new TableColumn<>("Date");
         dateCol.setCellValueFactory(data -> data.getValue().dateProperty());
@@ -199,6 +204,7 @@ public class AdminUI extends Application {
                     }
                 };
 
+        idCol.setCellFactory(centerCell);
         dateCol.setCellFactory(centerCell);
         timeCol.setCellFactory(centerCell);
         patientCol.setCellFactory(centerCell);
@@ -206,13 +212,14 @@ public class AdminUI extends Application {
         serviceCol.setCellFactory(centerCell);
 
         String centerStyle = "-fx-alignment: CENTER;";
+        idCol.setStyle(centerStyle);
         dateCol.setStyle(centerStyle);
         timeCol.setStyle(centerStyle);
         patientCol.setStyle(centerStyle);
         dentistCol.setStyle(centerStyle);
         serviceCol.setStyle(centerStyle);
 
-        table.getColumns().addAll(dateCol, timeCol, patientCol, dentistCol, serviceCol);
+        table.getColumns().addAll(idCol, dateCol, timeCol, patientCol, dentistCol, serviceCol);
 
         table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
         table.setMaxWidth(Double.MAX_VALUE);
@@ -283,9 +290,15 @@ public class AdminUI extends Application {
         // ===== REMOVE =====
         removeBtn.setOnAction(e -> {
             Appointment selected = table.getSelectionModel().getSelectedItem();
-            if (selected != null) {
-                table.getItems().remove(selected);
-            }
+            // get the id of the selected appointment
+            if (selected == null) return;
+            int id = Integer.parseInt(selected.idProperty().get());
+            boolean confirmation = functions.applicationFunctions.showConfirmationDialog("Are you sure you want to delete this appointment?", "Confirm Deletion", "Delete Appointment");
+           if(confirmation) {
+        	   functions.applicationFunctions.showDialog("Appointment deleted successfully!", "Deletion Successful", "Success", "INFORMATION");
+        	   Dao.deleteBooking(id);
+        	   loadAppointments(); // refresh the table after deletion
+           }
         });
 
         // TABLE WRAPPER
@@ -326,16 +339,9 @@ public class AdminUI extends Application {
         VBox loginPane = new VBox(10);
         loginPane.setPadding(new Insets(20));
 //
-        patients.setOnAction(e -> {
-            try {
-                new FileMaintenance().start(new Stage()); // since we don't want to close the dashboard, we open a new stage for file maintenance (stage means window)
-            } catch (Exception ex) {
-                ex.printStackTrace();
-            }
-        });
         doctors.setOnAction(e -> {
             try {
-                new FileMaintenance().start(new Stage()); // since we don't want to close the dashboard, we open a new stage for file maintenance (stage means window)
+                new FileMaintenance_Doctor().start(new Stage()); // since we don't want to close the dashboard, we open a new stage for file maintenance (stage means window)
             } catch (Exception ex) {
                 ex.printStackTrace();
             }
@@ -358,16 +364,20 @@ public class AdminUI extends Application {
     }
 
     public static class Appointment {
-        private SimpleStringProperty date, time, patient, dentist, service;
+        private SimpleStringProperty ID, date, time, patient, dentist, service;
 
-        public Appointment(String d, String t, String p, String den, String s) {
+        public Appointment(int I, String d, String t, String p, String den, String s) {
+        	ID = new SimpleStringProperty(String.valueOf(I));
             date = new SimpleStringProperty(d);
             time = new SimpleStringProperty(t);
             patient = new SimpleStringProperty(p);
             dentist = new SimpleStringProperty(den);
             service = new SimpleStringProperty(s);
         }
-
+        
+        
+        // these functions are used to get the value of the properties
+        public SimpleStringProperty idProperty() { return ID; }
         public SimpleStringProperty dateProperty() { return date; }
         public SimpleStringProperty timeProperty() { return time; }
         public SimpleStringProperty patientProperty() { return patient; }
