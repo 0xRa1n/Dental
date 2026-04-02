@@ -20,6 +20,14 @@ import java.sql.ResultSet;
 import passanduser.Dao;
 import model.User;
 
+import java.time.DayOfWeek;
+import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+import application.Main.App.DoctorAvailability;
+
 public class FileMaintenance_Doctor extends Application {
 
     // Data model
@@ -52,6 +60,23 @@ public class FileMaintenance_Doctor extends Application {
         public void setEmail(String email) { this.email.set(email); }
     }
 
+    private void populateTimes(ComboBox<String> box) {
+        for (int i = 1; i <= 12; i++) box.getItems().add(String.format("%02d:00 AM", i));
+        for (int i = 1; i <= 12; i++) box.getItems().add(String.format("%02d:00 PM", i));
+    }
+
+    private CheckBox createDayCheck(String name, DayOfWeek day, List<String> existingDays, Set<DayOfWeek> selectedDays) {
+        CheckBox cb = new CheckBox(name);
+        if (existingDays.contains(day.name())) {
+            cb.setSelected(true);
+            selectedDays.add(day);
+        }
+        cb.setOnAction(e -> {
+            if (cb.isSelected()) selectedDays.add(day);
+            else selectedDays.remove(day);
+        });
+        return cb;
+    }
 
     private final ObservableList<Doctor> data = FXCollections.observableArrayList();
 	private void loadDoctors() {
@@ -170,104 +195,155 @@ public class FileMaintenance_Doctor extends Application {
         stage.show();
     }
 
-    // Dialog for Add/Edit
-    private Dialog<Doctor> createDialog(Doctor existing) {
-        Dialog<Doctor> dialog = new Dialog<>();
-        dialog.setTitle(existing == null ? "Add Doctor" : "Edit Doctor");
-
-        TextField nameField = new TextField();
-        PasswordField passField = new PasswordField();
-        TextField emailField = new TextField();
-        TextField usernameField = new TextField();
-
-        if (existing != null) {
-            usernameField.setText(existing.getUsername()); 
-        	nameField.setText(existing.getName());
-            passField.setText(existing.getPassword());
-            emailField.setText(existing.getEmail()); 
-            
-        }
-
-        GridPane grid = new GridPane();
-        grid.setVgap(10);
-        grid.setHgap(10);
-        
-        grid.add(new Label("Name:"), 0, 0);
-        grid.add(nameField, 1, 0);
-        
-        grid.add(new Label("Username:"), 0, 1);
-        grid.add(usernameField, 1, 1);
-        
-        grid.add(new Label("Password:"), 0, 2);
-        grid.add(passField, 1, 2);
-        
-        grid.add(new Label("Email:"), 0, 3);
-        grid.add(emailField, 1, 3);
-
-
-        dialog.getDialogPane().setContent(grid);
-        dialog.getDialogPane().getButtonTypes().addAll(ButtonType.OK, ButtonType.CANCEL);
-
-        dialog.setResultConverter(button -> {
-            if (button == ButtonType.OK) {
-            	// reason behind this is that the add and edit functionalities are combined in one dialog, so we need to check if the admin is editing an existing entry or creating a new one. If the existing parameter is not null, it means that the admin is editing an existing entry, otherwise, they are creating a new one.
-            	// determine if the admin selects on an already existing entry
-            	if(existing != null) { // this means that the admin is editing an existing entry
-            		
-            		int id = existing.getNo(); // Get the 'id' from the existing Doctor object
-            		String name = nameField.getText();
-					String username = usernameField.getText();
-					String password = passField.getText();
-					String email = emailField.getText();
-					
-					existing.setName(name);
-					existing.setUsername(username);
-					existing.setPassword(password);
-					existing.setEmail(email);
-					
-					try {
-						if(Dao.updateUser(id, name, username, password, email, "doctor")) {
-							functions.applicationFunctions.showDialog("Doctor account updated successfully!", "Update Successful", "Success", "INFORMATION");
-							return existing; // Return the updated Doctor object, this will be seen in the main table and updated in the data list
-						} else {
-							functions.applicationFunctions.showDialog("Error updating doctor!", "Error", "Error", "ERROR");
-							return null;
-						}
-					} catch (Exception e) {
-						e.printStackTrace();
-						functions.applicationFunctions.showDialog("Error: " + e.getMessage(), "Database Error", "Error", "ERROR");
-						return null;
-					}
-            		
-            	} else { // otherwise, the admin is creating a new entry
-            		String name = nameField.getText();
-                	String username = usernameField.getText();
-    				String password = passField.getText();
-    				String email = emailField.getText();
-    				
-    				User newUser = new User(username, email, password, name, "doctor");
-    				
-    				try {
-    					if(Dao.registerUser(newUser)) {
-    						functions.applicationFunctions.showDialog("Doctor account created successfully!", "Account Creation Successful", "Success", "INFORMATION");
-    						return new Doctor(0, name, username, password, email); // Return a new Doctor object (No. will be set later), this will be seen in the main table and added to the data list
-    					} else {
-    						functions.applicationFunctions.showDialog("Error registering doctor!", "Error", "Error", "ERROR");
-    						return null;
-    					}
-    				} catch (Exception e) {
-    					e.printStackTrace();
-    					functions.applicationFunctions.showDialog("Error: " + e.getMessage(), "Database Error", "Error", "ERROR");
-    					return null;
-    				}
-            	}
-            }
-            return null;
-        });
-
-        return dialog;
-    }
-
+	    // Dialog for Add/Edit
+	    private Dialog<Doctor> createDialog(Doctor existing) {
+	        Dialog<Doctor> dialog = new Dialog<>();
+	        dialog.setTitle(existing == null ? "Add Doctor" : "Edit Doctor");
+	
+	        // Core fields
+	        TextField nameField = new TextField();
+	        PasswordField passField = new PasswordField();
+	        TextField emailField = new TextField();
+	        TextField usernameField = new TextField();
+	
+	        // Schedule state tracking
+	        // hashset to prevent duplicates
+	        Set<DayOfWeek> selectedDays = new HashSet<>(); 
+	        Set<LocalDate> blockedDates = new HashSet<>();
+	        ComboBox<String> startTime = new ComboBox<>();
+	        ComboBox<String> endTime = new ComboBox<>();
+	        populateTimes(startTime);
+	        populateTimes(endTime);
+	        List<String> existingDaysList = new ArrayList<>();
+	
+	        if (existing != null) {
+	            usernameField.setText(existing.getUsername()); 
+	            nameField.setText(existing.getName());
+	            passField.setText(existing.getPassword());
+	            emailField.setText(existing.getEmail()); 
+	            
+	            // Cross-search existing schedule data
+	            DoctorAvailability avail = Dao.getDoctorAvailability(existing.getUsername());
+	            if (avail.blockedDates != null) blockedDates.addAll(avail.blockedDates); // This will add the existing blocked dates from the database into a set that will be used to display the blocked dates in the UI. So if the doctor already has certain dates marked as unavailable, those dates will be shown in the blocked dates section when editing.
+	            existingDaysList.addAll(avail.recurringDays); // what this does is it adds the existing recurring days from the database into a list that will be used to pre-check the checkboxes in the UI. So if the doctor already has certain days marked as available, those checkboxes will be selected when editing.
+	            
+	            if (avail.startTime != null && !avail.startTime.isEmpty()) startTime.setValue(avail.startTime); // if start time exists, set it. Otherwise default to 10:00 AM
+	            else startTime.setValue("10:00 AM");
+	            
+	            if (avail.endTime != null && !avail.endTime.isEmpty()) endTime.setValue(avail.endTime); // if end time exists, set it. Otherwise default to 07:00 PM
+	            else endTime.setValue("07:00 PM");
+	        } else {
+	            startTime.setValue("10:00 AM");
+	            endTime.setValue("07:00 PM");
+	        }
+	
+	        // Core UI Grid
+	        GridPane grid = new GridPane();
+	        grid.setVgap(10);
+	        grid.setHgap(10);
+	        grid.add(new Label("Name:"), 0, 0);
+	        grid.add(nameField, 1, 0);
+	        grid.add(new Label("Username:"), 0, 1);
+	        grid.add(usernameField, 1, 1);
+	        grid.add(new Label("Password:"), 0, 2);
+	        grid.add(passField, 1, 2);
+	        grid.add(new Label("Email:"), 0, 3);
+	        grid.add(emailField, 1, 3);
+	
+	        // Schedule UI Construction
+	        Label scheduleLabel = new Label("Doctor Schedule Configuration");
+	        scheduleLabel.setStyle("-fx-font-weight: bold; -fx-padding: 15 0 5 0;");
+	
+	        // Recurring Days
+	        GridPane daysGrid = new GridPane();
+	        daysGrid.setHgap(10);
+	        daysGrid.setVgap(5);
+	        daysGrid.add(createDayCheck("Mon", DayOfWeek.MONDAY, existingDaysList, selectedDays), 0, 0);
+	        daysGrid.add(createDayCheck("Tue", DayOfWeek.TUESDAY, existingDaysList, selectedDays), 1, 0);
+	        daysGrid.add(createDayCheck("Wed", DayOfWeek.WEDNESDAY, existingDaysList, selectedDays), 2, 0);
+	        daysGrid.add(createDayCheck("Thu", DayOfWeek.THURSDAY, existingDaysList, selectedDays), 0, 1);
+	        daysGrid.add(createDayCheck("Fri", DayOfWeek.FRIDAY, existingDaysList, selectedDays), 1, 1);
+	        daysGrid.add(createDayCheck("Sat", DayOfWeek.SATURDAY, existingDaysList, selectedDays), 2, 1);
+	        daysGrid.add(createDayCheck("Sun", DayOfWeek.SUNDAY, existingDaysList, selectedDays), 0, 2);
+	
+	        // Time Window
+	        HBox timeBox = new HBox(10, new Label("Start:"), startTime, new Label("End:"), endTime);
+	        timeBox.setAlignment(Pos.CENTER_LEFT);
+	
+	        // Blocked Dates
+	        VBox blockedBox = new VBox(5);
+	        DatePicker datePicker = new DatePicker();
+	        Button addDateBtn = new Button("Add Blocked Date");
+	        VBox blockedList = new VBox(2);
+	        
+	        // Populate existing blocked dates into the view
+	        for (LocalDate d : blockedDates) {
+	            blockedList.getChildren().add(new Label("• " + d.toString()));
+	        }
+	
+	        addDateBtn.setOnAction(e -> {
+	            LocalDate d = datePicker.getValue();
+	            if (d != null && !blockedDates.contains(d)) {
+	                blockedDates.add(d);
+	                blockedList.getChildren().add(new Label("• " + d.toString()));
+	            }
+	        });
+	        blockedBox.getChildren().addAll(new HBox(10, datePicker, addDateBtn), blockedList);
+	
+	        VBox layout = new VBox(10, grid, new Separator(), scheduleLabel, new Label("Recurring Days:"), daysGrid, new Label("Time Window:"), timeBox, new Label("Blocked Dates:"), blockedBox);
+	        layout.setPadding(new javafx.geometry.Insets(10));
+	        
+	        // Wrap in ScrollPane to ensure UI fits within bounds
+	        ScrollPane scrollPane = new ScrollPane(layout);
+	        scrollPane.setFitToWidth(true);
+	        scrollPane.setPrefViewportHeight(450);
+	
+	        dialog.getDialogPane().setContent(scrollPane);
+	        dialog.getDialogPane().getButtonTypes().addAll(ButtonType.OK, ButtonType.CANCEL);
+	
+	        dialog.setResultConverter(button -> {
+	            if (button == ButtonType.OK) {
+	                String name = nameField.getText();
+	                String username = usernameField.getText();
+	                String password = passField.getText();
+	                String email = emailField.getText();
+	                String finalStart = startTime.getValue();
+	                String finalEnd = endTime.getValue();
+	
+	                if (existing != null) { 
+	                    int id = existing.getNo();
+	                    existing.setName(name);
+	                    existing.setUsername(username);
+	                    existing.setPassword(password);
+	                    existing.setEmail(email);
+	                    
+	                    try {
+	                        if (Dao.updateUser(id, name, username, password, email, "doctor")) {
+	                            Dao.saveDoctorAvailability(username, selectedDays, finalStart, finalEnd, blockedDates);
+	                            functions.applicationFunctions.showDialog("Doctor account and schedule updated successfully!", "Update Successful", "Success", "INFORMATION");
+	                            return existing;
+	                        }
+	                    } catch (Exception e) {
+	                        functions.applicationFunctions.showDialog("Error: " + e.getMessage(), "Database Error", "Error", "ERROR");
+	                    }
+	                } else { 
+	                    User newUser = new User(username, email, password, name, "doctor");
+	                    try {
+	                        if (Dao.registerUser(newUser)) {
+	                            Dao.saveDoctorAvailability(username, selectedDays, finalStart, finalEnd, blockedDates);
+	                            functions.applicationFunctions.showDialog("Doctor account and schedule created successfully!", "Account Creation Successful", "Success", "INFORMATION");
+	                            return new Doctor(0, name, username, password, email);
+	                        }
+	                    } catch (Exception e) {
+	                        functions.applicationFunctions.showDialog("Error: " + e.getMessage(), "Database Error", "Error", "ERROR");
+	                    }
+	                }
+	            }
+	            return null;
+	        });
+	
+	        return dialog;
+	    }
     private void showAlert(String msg) {
         Alert alert = new Alert(Alert.AlertType.INFORMATION);
         alert.setContentText(msg);

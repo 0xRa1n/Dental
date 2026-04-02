@@ -290,8 +290,6 @@
 	        Scene scene = new Scene(root, 500, 600);
 	        scheduleStage.setScene(scene);
 	        scheduleStage.showAndWait();
-
-
 	    }
 	    
 	    public void start(Stage stage, String doctorName) {
