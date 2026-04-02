@@ -11,7 +11,7 @@
 	import javafx.scene.layout.*;
 	import javafx.stage.Stage;
 	import javafx.stage.Modality;
-	
+
 	import javafx.scene.control.TextArea;
 	import passanduser.Dao;
 	import passanduser.Dbconnection;
@@ -178,10 +178,41 @@
 	                blockedList.getChildren().add(new Label("• " + d));
 	            }
 	        });
-
 	        blockedBox.getChildren().addAll(blockedLabel, manageDatePicker, addBtn, blockedList);
+	        
+	        // ==== Choose your available services ====
+	        VBox servicesBox = new VBox(10);
+	        servicesBox.setAlignment(Pos.CENTER);
+	        Label servicesLabel = new Label("Choose your available services");
+	        servicesLabel.setStyle("-fx-font-size: 16px; -fx-font-weight: bold;");
 
-	        content.getChildren().addAll(recurringBox, timeBox, blockedBox);
+	        // dropdown with all the services, allowing multiple selection
+	        MenuButton servicesDropdown = new MenuButton("Select Services");
+	        String[] servicesList = {
+	            "Dental Checkup", "Tooth Cleaning", "Tooth Extraction", 
+	            "Dental Filling", "Root Canal", "Braces"
+	        };
+	        
+	        List<String> selectedServices = new ArrayList<>();
+
+	        for (String service : servicesList) {
+	            CheckBox checkBox = new CheckBox(service); // Create a checkbox for each service
+	            CustomMenuItem customMenuItem = new CustomMenuItem(checkBox); // Wrap the checkbox in a CustomMenuItem
+	            customMenuItem.setHideOnClick(false); // customMenuItem's purpose is to allow the checkbox to be toggled without closing the dropdown
+	            
+	            checkBox.setOnAction(e -> {
+	                if (checkBox.isSelected()) {
+	                    selectedServices.add(service); // Add the service to the selected list when checked
+	                } else {
+	                    selectedServices.remove(service);
+	                }
+	            });
+	            
+	            servicesDropdown.getItems().add(customMenuItem);
+	        }
+
+	        servicesBox.getChildren().addAll(servicesLabel, servicesDropdown);
+	        content.getChildren().addAll(recurringBox, timeBox, blockedBox, servicesBox);
 	        
 	        ScrollPane scroll = new ScrollPane(content);
 	        scroll.setFitToWidth(true);
@@ -201,6 +232,9 @@
 	        btnSaveSchedule.setOnAction(e -> {
 	            String start = startTime.getValue();
 	            String end = endTime.getValue();
+
+	            // Pass the entire list to the DAO to handle the batch database insertion
+	            Dao.saveDoctorServices(doctorName, selectedServices);
 
 	            // Pass the captured data to your database handler
 	            // Assuming doctorName is accessible or passed into manageYourSchedule

@@ -211,71 +211,84 @@ public class Main {
 		    grid.setVgap(15); grid.setHgap(15);
 		    grid.setAlignment(Pos.CENTER);
 		
-		    ComboBox<String> serviceBox = new ComboBox<>(FXCollections.observableArrayList(
-		        "Dental Checkup", "Tooth Cleaning", "Tooth Extraction", "Dental Filling", "Root Canal", "Braces"
-		    ));
-		    
+		 // 1. Declare the serviceBox and disable it initially
+		    ComboBox<String> serviceBox = new ComboBox<>();
+		    serviceBox.setDisable(true); // Disabled until a dentist is selected
+		    serviceBox.setPromptText("Select a Dentist first");
+
 		    ComboBox<String> dentistBox = new ComboBox<>(FXCollections.observableArrayList(
 		        "Dr. Maria Santos", "Dr. Ricardo Reyes", "Dr. Elena Cruz"
 		    ));
-		    
+
 		    DatePicker datePicker = new DatePicker();
-		    datePicker.setDisable(true); // Disabled until dentist is chosen
-		    
+		    datePicker.setDisable(true); 
+
 		    ComboBox<String> timeBox = new ComboBox<>();
-		    timeBox.setDisable(true); // Disabled until dentist is chosen
-		
+		    timeBox.setDisable(true); 
+
 		    // --- NEW LOGIC: Listener to update constraints when a dentist is selected ---
 		    dentistBox.getSelectionModel().selectedItemProperty().addListener((obs, oldVal, newVal) -> {
 		        if (newVal != null) {
 		            String dbName = getDbDentistName(newVal);
+
+		            // Fetch availability and services simultaneously
 		            DoctorAvailability avail = Dao.getDoctorAvailability(dbName);
-		            
+		            List<String> availableServices = Dao.getDoctorServices(dbName);
+
 		            // Enable inputs
 		            datePicker.setDisable(false);
 		            timeBox.setDisable(false);
-		            
-		            // 1. Restrict DatePicker (Blocked Dates & Recurring Days)
+		            serviceBox.setDisable(false);
+
+		            // 1. Update Service Box dynamically based on the doctor's saved configuration
+		            serviceBox.getItems().clear();
+		            if (!availableServices.isEmpty()) {
+		                serviceBox.getItems().addAll(availableServices);
+		                serviceBox.setPromptText("Select a Service");
+		            } else {
+		                serviceBox.setPromptText("No services configured");
+		            }
+
+		            // 2. Restrict DatePicker (Blocked Dates & Recurring Days)
 		            datePicker.setDayCellFactory(dp -> new DateCell() {
 		                @Override
 		                public void updateItem(LocalDate item, boolean empty) {
 		                    super.updateItem(item, empty);
 		                    if (empty || item == null) return;
-		                    
-		                    // Disable past dates
-		                    if (item.isBefore(LocalDate.now())) { // isBefore checks if the date is in the past, if it is true, set the days before today to be disabled
+
+		                    if (item.isBefore(LocalDate.now())) { 
 		                        setDisable(true);
 		                        setStyle("-fx-background-color: #e0e0e0;");
 		                        return;
 		                    }
-		                    
+
 		                    String dayName = item.getDayOfWeek().name();
-		                    
-		                    // If the day is not in recurring days OR is in blocked dates, disable it
-		                    if (!avail.recurringDays.contains(dayName) || avail.blockedDates.contains(item)) { // now, if the day is not in the recurring days list or if the day is in the blocked dates list, disable it
+
+		                    if (!avail.recurringDays.contains(dayName) || avail.blockedDates.contains(item)) { 
 		                        setDisable(true);
-		                        setStyle("-fx-background-color: #ffcdd2;"); // Visual indicator
+		                        setStyle("-fx-background-color: #ffcdd2;"); 
 		                    }
 		                }
 		            });
-		
-		            // 2. Populate TimeBox dynamically
+
+		            // 3. Populate TimeBox dynamically
 		            timeBox.getItems().clear();
 		            if (avail.startTime != null && avail.endTime != null) {
 		                int startHour = parseHour(avail.startTime);
 		                int endHour = parseHour(avail.endTime);
-		                
+
 		                for (int h = startHour; h <= endHour; h++) {
-		                    timeBox.getItems().add(formatHour(h)); // e.g. "09:00 AM", "10:00 AM", .... , up until 10 PM, which is 22 in 24-hour format
+		                    timeBox.getItems().add(formatHour(h)); 
 		                }
 		            }
 		        }
 		    });
-		
-		    if (existingAppointment != null) { // if the user is rescheduling, pre-populate the form with existing values
-		        serviceBox.setValue(existingAppointment.getService());
+
+		    if (existingAppointment != null) { 
 		        dentistBox.setValue(existingAppointment.getDentist()); 
-		        // Note: setting dentistBox value triggers the listener above to enable inputs
+		        // Note: setting dentistBox triggers the listener, which populates the serviceBox.
+		        // Therefore, setting the serviceBox value must happen AFTER setting the dentistBox.
+		        serviceBox.setValue(existingAppointment.getService());
 		        datePicker.setValue(LocalDate.parse(existingAppointment.getDate()));
 		        timeBox.setValue(existingAppointment.getTime());
 		    }

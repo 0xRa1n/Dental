@@ -9,6 +9,84 @@ import java.util.*;
 import application.Main.App.DoctorAvailability;
 
 public class Dao {
+    
+    public static List<String> getDoctorServices(String doctorUsername) {
+        List<String> services = new ArrayList<>();
+        // Join users, doctor_services, and services tables to resolve the authorized list
+        String sql = "SELECT s.service_name FROM services s " +
+                     "INNER JOIN doctor_services ds ON s.id = ds.service_id " +
+                     "INNER JOIN users u ON ds.doctor_id = u.id " +
+                     "WHERE u.username = ?";
+
+        try (Connection con = Dbconnection.getConnection();
+             PreparedStatement ps = con.prepareStatement(sql)) {
+
+            ps.setString(1, doctorUsername);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    services.add(rs.getString("service_name"));
+                }
+            }
+        } catch (Exception e) {
+            System.out.println("Failed to load doctor services: " + e.getMessage());
+        }
+        return services;
+    }
+
+	public static void saveDoctorServices(String doctorUsername, List<String> selectedServices) {
+	    // Step 1: Retrieve the doctor's ID from the users table
+	    String getDoctorIdSql = "SELECT id FROM users WHERE username = ?";
+
+	    // Step 2: Delete existing services to cleanly apply the updated list
+	    String deleteOldServicesSql = "DELETE FROM doctor_services WHERE doctor_id = ?";
+
+	    // Step 3: Insert the new services by mapping the string to the service ID
+	    String insertServiceSql = "INSERT INTO doctor_services (doctor_id, service_id) " +
+	                              "VALUES (?, (SELECT id FROM services WHERE service_name = ?))";
+
+	    try (Connection con = Dbconnection.getConnection()) {
+	        con.setAutoCommit(false); // Begin transaction for atomicity
+
+	        int doctorId = -1;
+
+	        // Execute Step 1
+	        try (PreparedStatement psGetId = con.prepareStatement(getDoctorIdSql)) {
+	            psGetId.setString(1, doctorUsername);
+	            try (ResultSet rs = psGetId.executeQuery()) {
+	                if (rs.next()) {
+	                    doctorId = rs.getInt("id");
+	                }
+	            }
+	        }
+
+	        if (doctorId == -1) {
+	            System.out.println("Error: Doctor username not found in database.");
+	            return;
+	        }
+
+	        // Execute Step 2
+	        try (PreparedStatement psDelete = con.prepareStatement(deleteOldServicesSql)) {
+	            psDelete.setInt(1, doctorId);
+	            psDelete.executeUpdate();
+	        }
+
+	        // Execute Step 3
+	        try (PreparedStatement psInsert = con.prepareStatement(insertServiceSql)) {
+	            for (String serviceName : selectedServices) {
+	                psInsert.setInt(1, doctorId);
+	                psInsert.setString(2, serviceName);
+	                psInsert.addBatch(); // Use batching for efficiency
+	            }
+	            psInsert.executeBatch();
+	        }
+
+	        con.commit(); // Commit the transaction
+	        System.out.println("Services successfully updated for doctor: " + doctorUsername);
+
+	    } catch (Exception e) {
+	        System.out.println("Database operation failed: " + e.getMessage());
+	    }
+	}
 	public static DoctorAvailability getDoctorAvailability(String doctorName) {
 	    DoctorAvailability avail = new DoctorAvailability();
 	    
