@@ -11,8 +11,14 @@ import javafx.scene.control.*;
 import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.layout.*;
 import javafx.stage.Stage;
+import passanduser.Dbconnection;
 
-import java.io.*;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+
+import passanduser.Dao;
+import model.User;
 
 public class FileMaintenance_Doctor extends Application {
 
@@ -20,25 +26,59 @@ public class FileMaintenance_Doctor extends Application {
     public static class Doctor {
         private final SimpleIntegerProperty no;
         private final SimpleStringProperty name;
+        private final SimpleStringProperty username;
         private final SimpleStringProperty password;
+        private final SimpleStringProperty email;
+        
 
-        public Doctor(int no, String name, String password) {
+        public Doctor(int no, String name, String username, String password, String email) {
             this.no = new SimpleIntegerProperty(no);
             this.name = new SimpleStringProperty(name);
+            this.username = new SimpleStringProperty(username);
             this.password = new SimpleStringProperty(password);
+            this.email = new SimpleStringProperty(email);
         }
 
         public int getNo() { return no.get(); }
         public String getName() { return name.get(); }
         public String getPassword() { return password.get(); }
+        public String getUsername() { return username.get(); }
+        public String getEmail() { return email.get(); }
 
         public void setNo(int no) { this.no.set(no); }
         public void setName(String name) { this.name.set(name); }
         public void setPassword(String password) { this.password.set(password); }
+        public void setUsername(String username) { this.username.set(username); }
+        public void setEmail(String email) { this.email.set(email); }
     }
 
-    private final ObservableList<Doctor> data = FXCollections.observableArrayList();
 
+    private final ObservableList<Doctor> data = FXCollections.observableArrayList();
+	private void loadDoctors() {
+		data.clear();
+        
+        // Added 'id' to the SELECT statement
+        String sql = "SELECT id, username, password, full_name, email FROM users WHERE role = 'doctor'";
+        try (Connection con = Dbconnection.getConnection();
+             PreparedStatement ps = con.prepareStatement(sql)) {
+            
+            if (con != null) {
+            	ResultSet rs = ps.executeQuery();
+				while (rs.next()) {					
+					int id = rs.getInt("id"); // Get the 'id' column
+					String fullName = rs.getString("full_name");
+					String username = rs.getString("username");
+					String password = rs.getString("password");
+					String email = rs.getString("email");
+
+					data.add(new Doctor(id, fullName, username, password, email)); // Use count for No.
+				}
+            }
+        } catch (Exception e) {
+            System.out.println("❌ Failed to load doctors: " + e.getMessage());
+        }
+        
+    }
     @Override
     public void start(Stage stage) {
         // Title
@@ -46,7 +86,10 @@ public class FileMaintenance_Doctor extends Application {
         title.setStyle("-fx-font-size: 20px; -fx-font-weight: bold;");
         title.setMaxWidth(Double.MAX_VALUE);
         title.setAlignment(Pos.CENTER);
-
+      
+        loadDoctors(); // Load data from database
+        
+        
         // Table
         TableView<Doctor> table = new TableView<>(data);
 
@@ -55,20 +98,25 @@ public class FileMaintenance_Doctor extends Application {
 
         TableColumn<Doctor, String> colName = new TableColumn<>("Name");
         colName.setCellValueFactory(new PropertyValueFactory<>("name"));
+        
+        TableColumn<Doctor, String> colUsername = new TableColumn<>("Username");
+        colUsername.setCellValueFactory(new PropertyValueFactory<>("username"));
 
         TableColumn<Doctor, String> colPass = new TableColumn<>("Password");
         colPass.setCellValueFactory(new PropertyValueFactory<>("password"));
+        
+        TableColumn<Doctor, String> colEmail = new TableColumn<>("Email");
+        colEmail.setCellValueFactory(new PropertyValueFactory<>("email"));
 
-        table.getColumns().addAll(colNo, colName, colPass);
+        table.getColumns().addAll(colNo, colName, colPass, colUsername, colEmail);
         table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
-
+        
         // Buttons
         Button addBtn = new Button("Add");
         Button editBtn = new Button("Edit");
         Button deleteBtn = new Button("Delete");
-        Button saveBtn = new Button("Save");
 
-        HBox buttonBox = new HBox(10, addBtn, editBtn, deleteBtn, saveBtn);
+        HBox buttonBox = new HBox(10, addBtn, editBtn, deleteBtn);
         buttonBox.setAlignment(Pos.CENTER);
 
         // ADD
@@ -86,8 +134,10 @@ public class FileMaintenance_Doctor extends Application {
             if (selected != null) {
                 Dialog<Doctor> dialog = createDialog(selected);
                 dialog.showAndWait().ifPresent(updated -> {
+                	selected.setUsername(updated.getUsername());
                     selected.setName(updated.getName());
                     selected.setPassword(updated.getPassword());
+                    selected.setEmail(updated.getEmail());
                     table.refresh();
                 });
             } else {
@@ -99,26 +149,14 @@ public class FileMaintenance_Doctor extends Application {
         deleteBtn.setOnAction(e -> {
             Doctor selected = table.getSelectionModel().getSelectedItem();
             if (selected != null) {
-                data.remove(selected);
-
-                // Re-number
-                for (int i = 0; i < data.size(); i++) {
-                    data.get(i).setNo(i + 1);
-                }
+                boolean confirmation = functions.applicationFunctions.showConfirmationDialog("Are you sure you want to delete this user?", "Confirm Deletion", "Delete User");
+                if (confirmation) {
+					Dao.deleteUser(selected.getNo()); // Use the 'no' property which is actually the 'id'
+					data.remove(selected);
+		        	   functions.applicationFunctions.showDialog("Appointment deleted successfully!", "Deletion Successful", "Success", "INFORMATION");
+				}
             } else {
                 showAlert("Select a user to delete first.");
-            }
-        });
-
-        // SAVE
-        saveBtn.setOnAction(e -> {
-            try (PrintWriter writer = new PrintWriter(new FileWriter("doctors.txt"))) {
-                for (Doctor d : data) {
-                    writer.println(d.getNo() + " | " + d.getName() + " | " + d.getPassword());
-                }
-                showAlert("Data saved to doctors.txt!");
-            } catch (IOException ex) {
-                showAlert("Error saving file!");
             }
         });
 
@@ -139,26 +177,90 @@ public class FileMaintenance_Doctor extends Application {
 
         TextField nameField = new TextField();
         PasswordField passField = new PasswordField();
+        TextField emailField = new TextField();
+        TextField usernameField = new TextField();
 
         if (existing != null) {
-            nameField.setText(existing.getName());
+            usernameField.setText(existing.getUsername()); 
+        	nameField.setText(existing.getName());
             passField.setText(existing.getPassword());
+            emailField.setText(existing.getEmail()); 
+            
         }
 
         GridPane grid = new GridPane();
         grid.setVgap(10);
         grid.setHgap(10);
+        
         grid.add(new Label("Name:"), 0, 0);
         grid.add(nameField, 1, 0);
-        grid.add(new Label("Password:"), 0, 1);
-        grid.add(passField, 1, 1);
+        
+        grid.add(new Label("Username:"), 0, 1);
+        grid.add(usernameField, 1, 1);
+        
+        grid.add(new Label("Password:"), 0, 2);
+        grid.add(passField, 1, 2);
+        
+        grid.add(new Label("Email:"), 0, 3);
+        grid.add(emailField, 1, 3);
+
 
         dialog.getDialogPane().setContent(grid);
         dialog.getDialogPane().getButtonTypes().addAll(ButtonType.OK, ButtonType.CANCEL);
 
         dialog.setResultConverter(button -> {
             if (button == ButtonType.OK) {
-                return new Doctor(0, nameField.getText(), passField.getText());
+            	// reason behind this is that the add and edit functionalities are combined in one dialog, so we need to check if the admin is editing an existing entry or creating a new one. If the existing parameter is not null, it means that the admin is editing an existing entry, otherwise, they are creating a new one.
+            	// determine if the admin selects on an already existing entry
+            	if(existing != null) { // this means that the admin is editing an existing entry
+            		
+            		int id = existing.getNo(); // Get the 'id' from the existing Doctor object
+            		String name = nameField.getText();
+					String username = usernameField.getText();
+					String password = passField.getText();
+					String email = emailField.getText();
+					
+					existing.setName(name);
+					existing.setUsername(username);
+					existing.setPassword(password);
+					existing.setEmail(email);
+					
+					try {
+						if(Dao.updateUser(id, name, username, password, email, "doctor")) {
+							functions.applicationFunctions.showDialog("Doctor account updated successfully!", "Update Successful", "Success", "INFORMATION");
+							return existing; // Return the updated Doctor object, this will be seen in the main table and updated in the data list
+						} else {
+							functions.applicationFunctions.showDialog("Error updating doctor!", "Error", "Error", "ERROR");
+							return null;
+						}
+					} catch (Exception e) {
+						e.printStackTrace();
+						functions.applicationFunctions.showDialog("Error: " + e.getMessage(), "Database Error", "Error", "ERROR");
+						return null;
+					}
+            		
+            	} else { // otherwise, the admin is creating a new entry
+            		String name = nameField.getText();
+                	String username = usernameField.getText();
+    				String password = passField.getText();
+    				String email = emailField.getText();
+    				
+    				User newUser = new User(username, email, password, name, "doctor");
+    				
+    				try {
+    					if(Dao.registerUser(newUser)) {
+    						functions.applicationFunctions.showDialog("Doctor account created successfully!", "Account Creation Successful", "Success", "INFORMATION");
+    						return new Doctor(0, name, username, password, email); // Return a new Doctor object (No. will be set later), this will be seen in the main table and added to the data list
+    					} else {
+    						functions.applicationFunctions.showDialog("Error registering doctor!", "Error", "Error", "ERROR");
+    						return null;
+    					}
+    				} catch (Exception e) {
+    					e.printStackTrace();
+    					functions.applicationFunctions.showDialog("Error: " + e.getMessage(), "Database Error", "Error", "ERROR");
+    					return null;
+    				}
+            	}
             }
             return null;
         });

@@ -178,6 +178,40 @@ public class Dao {
 		
 	}
 	
+	public static boolean updateUser(int id, String name, String username, String password, String email, String role) {
+		Connection con = null;
+		PreparedStatement ps = null;
+		
+		try {
+			con = Dbconnection.getConnection();
+			if (con == null) {
+				System.out.println("❌ Database connection failed!");
+				return false;
+			}
+
+			String sql = "UPDATE users SET full_name=?, username=?, password=?, email=?, role=? WHERE id=?";
+			ps = con.prepareStatement(sql);
+			ps.setString(1, name);
+			ps.setString(2, username);
+			ps.setString(3, password);
+			ps.setString(4, email);
+			ps.setString(5, role);
+			ps.setInt(6, id);
+
+			boolean success = ps.executeUpdate() > 0;
+			if(!success) {
+				System.out.println("❌ No user found with ID " + id);
+				return false;
+			}
+			return true;
+		} catch (Exception e) {
+			System.out.println("❌ Update Error: " + e.getMessage());
+		} finally {
+			closeSafely(null, ps, con);
+		}
+		return false;
+	}
+	
 	public static void updateAppointmentStatus(int id, String newStatus) {
 		Connection con = null;
 		PreparedStatement ps = null;
@@ -221,6 +255,31 @@ public class Dao {
 
 			boolean success = ps.executeUpdate() > 0;
 			if(success) System.out.println("✅ Appointment deleted for " + id);
+
+		} catch (Exception e) {
+			System.out.println("❌ Deletion Error: " + e.getMessage());
+		} finally {
+			closeSafely(null, ps, con);
+		}
+		
+	}
+	public static void deleteUser(int id) {
+		Connection con = null;
+		PreparedStatement ps = null;
+		
+		try {
+			con = Dbconnection.getConnection();
+			if (con == null) {
+				System.out.println("❌ Database connection failed!");
+				return;
+			}
+
+			String sql = "DELETE FROM users WHERE id=?";
+			ps = con.prepareStatement(sql);
+			ps.setInt(1, id);
+
+			boolean success = ps.executeUpdate() > 0;
+			if(success) System.out.println("✅ User deleted");
 
 		} catch (Exception e) {
 			System.out.println("❌ Deletion Error: " + e.getMessage());
