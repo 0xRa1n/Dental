@@ -281,24 +281,36 @@ public class AdminUI extends Application {
 
         // ===== EDIT POPUP =====
         editBtn.setOnAction(e -> {
+        	// set a custom size for this popup, so that it could fit the content of the popup, and also make it look better
+        	
             Appointment selected = table.getSelectionModel().getSelectedItem();
-            if (selected == null) return;
+            if (selected == null) {
+            	functions.applicationFunctions.showDialog("Please select an appointment to edit.", "No Selection", "Error", "ERROR");
+				return;
+            };
 
             Stage popup = new Stage();
             popup.initModality(Modality.APPLICATION_MODAL);
             popup.setTitle("Edit Appointment");
 
-            TextField dateField = new TextField(selected.dateProperty().get());
-            TextField timeField = new TextField(selected.timeProperty().get());
             TextField patientField = new TextField(selected.patientProperty().get());
+            patientField.setDisable(true); // disable the patient field since we don't want to change the patient of the appointment, if you want to change it, you can remove this line and add a dropdown for the patients in the edit popup	
+            // datepicker and automatically set the value of the datepicker to the date of the appointment, so that the user can see the original date of the appointment in the datepicker, and also make it easier for the user to change the date of the appointment if needed
+            DatePicker datePicker = new DatePicker();
+			datePicker.setValue(java.time.LocalDate.parse(selected.dateProperty().get())); // set the value of the datepicker to the date of the appointment, so that the user can see the original date of the appointment in the datepicker, and also make it easier for the user to change the date of the appointment if needed
+            TextField timeField = new TextField(selected.timeProperty().get());
             TextField dentistField = new TextField(selected.dentistProperty().get());
             TextField serviceField = new TextField(selected.serviceProperty().get());
-            TextField statusField = new TextField(selected.statusProperty().get()); // you can change this to whatever status you want, or you can add a dropdown for the status in the edit popup
-
+            // set the status field to be a dropdown with the options "Cancelled", "Completed", "Pending"
+            ObservableList<String> statusOptions = FXCollections.observableArrayList("Cancelled", "Completed", "Pending");
+            ComboBox<String> statusField = new ComboBox<>(statusOptions);
+            statusField.setPromptText("Select status");
+            statusField.setValue(selected.statusProperty().get()); // set the value of the status field to the status of the appointment, so that the user can see the original status of the appointment in the status field, and also make it easier for the user to change the status of the appointment if needed
+            
             VBox form = new VBox(10,
-                    new Label("Date"), dateField,
-                    new Label("Time"), timeField,
                     new Label("Patient"), patientField,
+                    new Label("Date"), datePicker,
+                    new Label("Time"), timeField,
                     new Label("Dentist"), dentistField,
                     new Label("Service"), serviceField,
                     new Label("Status"), statusField  // you can change this to whatever status you want, or you can add a dropdown for the status in the edit popup
@@ -309,11 +321,14 @@ public class AdminUI extends Application {
             saveBtn.setOnAction(ev -> {
                 int id = Integer.parseInt(selected.idProperty().get());
                 
-                String date = dateField.getText();
+                // the first condition here is to check if the date picker has a value, if it has a value, then we use the value of the date picker, if it doesn't have a value, then we use the original date of the appointment, this is to prevent the date from being changed to null if the user doesn't change the date in the edit popup
+                // it the datepicker is not null, then we use the value of the datepicker, if it is null, then we use the original date of the appointment, this is to prevent the date from being changed to null if the user doesn't change the date in the edit popup
+                String date = datePicker.getValue() != null ? datePicker.getValue().toString() : selected.dateProperty().get(); // if the date is not changed, use the original date
                 String time = timeField.getText();
                 String dentist = dentistField.getText();
                 String service = serviceField.getText();
-                String status = statusField.getText(); 
+                // same as the date and time, if the status field is not null, then we use the value of the status field, if it is null, then we use the original status of the appointment, this is to prevent the status from being changed to null if the user doesn't change the status in the edit popup
+                String status = statusField.getValue() != null ? statusField.getValue() : selected.statusProperty().get(); // if the status is not changed, use the original status
                 
                 Dao.updateBooking(id, date, time, dentist, service, status);
                 
@@ -325,7 +340,7 @@ public class AdminUI extends Application {
             VBox layout = new VBox(10, form, saveBtn);
             layout.setPadding(new Insets(15));
 
-            popup.setScene(new Scene(layout, 300, 400));
+            popup.setScene(new Scene(layout, 300, 450));
             popup.showAndWait();
         });
 
