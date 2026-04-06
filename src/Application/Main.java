@@ -2,7 +2,7 @@ package application;
 
 import javafx.application.Application;
 import passanduser.Dao;
-import passanduser.Dbconnection; // Added import for Dbconnection
+import passanduser.Dbconnection;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.geometry.Insets;
@@ -26,9 +26,10 @@ import functions.applicationFunctions;
 
 public class Main {
     public static class App extends Application {
-    	
+        
         private BorderPane mainLayout; 
         private ObservableList<Appointment> appointmentList = FXCollections.observableArrayList();
+        private String username;
 
         public static class DoctorAvailability {
             public List<String> recurringDays = new ArrayList<>();
@@ -36,8 +37,11 @@ public class Main {
             public String startTime;
             public String endTime;
         }
-        @Override
-        public void start(Stage primaryStage) {
+        
+        // Overloaded start method that takes the username
+        public void start(Stage primaryStage, String patientUsername) {
+            this.username = patientUsername;
+            
             mainLayout = new BorderPane();
             setupHeader(); 
             showDashboardView(); 
@@ -47,6 +51,12 @@ public class Main {
 
             primaryStage.setScene(scene);
             primaryStage.show();
+        }
+
+        // Default start method required by JavaFX
+        @Override
+        public void start(Stage primaryStage) {
+            start(primaryStage, "Unknown Patient");
         }
         
         private int parseHour(String time) {
@@ -81,16 +91,15 @@ public class Main {
             btnLogout.getStyleClass().add("btn-danger");
             
             btnLogout.setOnAction(e -> {
-            	Stage stage = (Stage) btnLogout.getScene().getWindow();
-            	stage.close(); 
-            	Login.main(new String[0]); 
+                Stage stage = (Stage) btnLogout.getScene().getWindow();
+                stage.close(); 
+                Login.main(new String[0]); 
             });
             
             header.getChildren().addAll(logo, title, spacer, btnProfile, btnLogout);
             mainLayout.setTop(header);
         }
 
-        // Helper method to convert DB name to Display name
         private String getDisplayDentistName(String dbName) {
             if (dbName == null) return null;
             switch (dbName) {
@@ -101,7 +110,6 @@ public class Main {
             }
         }
 
-        // Helper method to convert Display name to DB name
         private String getDbDentistName(String displayName) {
             if (displayName == null) return null;
             switch (displayName) {
@@ -112,27 +120,21 @@ public class Main {
             }
         }
 
-        // Fetch appointments from the database
         private void loadAppointments() {
             appointmentList.clear();
-            String username = "test"; // Using the same hardcoded user as your bookAppointment call
-            
-            // Added 'id' to the SELECT statement
             String sql = "SELECT id, date, serviceTime, dentist, status, dentalService FROM appointments WHERE username = ?";
             try (Connection con = Dbconnection.getConnection();
                  PreparedStatement ps = con.prepareStatement(sql)) {
                 
                 if (con != null) {
-                    ps.setString(1, username);
+                    ps.setString(1, this.username);
                     try (ResultSet rs = ps.executeQuery()) {
                         while (rs.next()) {
-                            // Passing the retrieved id to the Appointment constructor
-                            // Mapping internal db dentist name to display name
                             appointmentList.add(new Appointment(
-                            	rs.getInt("id"),
+                                rs.getInt("id"),
                                 rs.getString("date"),
                                 rs.getString("serviceTime"),
-                                getDisplayDentistName(rs.getString("dentist")), // this converts the stored db name to a user-friendly display name (e.g., "Dr. Maria Santos" to "maria_santos")
+                                getDisplayDentistName(rs.getString("dentist")),
                                 rs.getString("dentalService"),
                                 rs.getString("status")
                             ));
@@ -144,15 +146,14 @@ public class Main {
             }
         }
 
-        @SuppressWarnings("unchecked")
-		public void showDashboardView() {
-            loadAppointments(); // Refresh the list from the database before showing
+        public void showDashboardView() {
+            loadAppointments(); 
 
             VBox content = new VBox(25);
             content.setAlignment(Pos.TOP_CENTER);
             content.setPadding(new Insets(40));
 
-            Label lblHeadline = new Label("Upcoming Appointment");
+            Label lblHeadline = new Label("Upcoming Appointment for " + (username != null ? username : "Patient"));
             lblHeadline.getStyleClass().add("headline-main");
 
             TableView<Appointment> table = new TableView<>();
@@ -197,168 +198,158 @@ public class Main {
             mainLayout.setCenter(content); 
         }
 
-		public void showBookingView(Appointment existingAppointment) {
-		    VBox formBox = new VBox(25);
-		    formBox.getStyleClass().add("booking-border-box");
-		    formBox.setMaxWidth(600);
-		    formBox.setAlignment(Pos.CENTER);
-		
-		    String titleText = (existingAppointment == null) ? "Book Appointment" : "Reschedule Appointment";
-		    Label formTitle = new Label(titleText);
-		    formTitle.getStyleClass().add("headline-main");
-		
-		    GridPane grid = new GridPane();
-		    grid.setVgap(15); grid.setHgap(15);
-		    grid.setAlignment(Pos.CENTER);
-		
-		 // 1. Declare the serviceBox and disable it initially
-		    ComboBox<String> serviceBox = new ComboBox<>();
-		    serviceBox.setDisable(true); // Disabled until a dentist is selected
-		    serviceBox.setPromptText("Select a Dentist first");
+        public void showBookingView(Appointment existingAppointment) {
+            VBox formBox = new VBox(25);
+            formBox.getStyleClass().add("booking-border-box");
+            formBox.setMaxWidth(600);
+            formBox.setAlignment(Pos.CENTER);
+        
+            String titleText = (existingAppointment == null) ? "Book Appointment" : "Reschedule Appointment";
+            Label formTitle = new Label(titleText);
+            formTitle.getStyleClass().add("headline-main");
+        
+            GridPane grid = new GridPane();
+            grid.setVgap(15); grid.setHgap(15);
+            grid.setAlignment(Pos.CENTER);
+        
+            ComboBox<String> serviceBox = new ComboBox<>();
+            serviceBox.setDisable(true); 
+            serviceBox.setPromptText("Select a Dentist first");
 
-		    ComboBox<String> dentistBox = new ComboBox<>(FXCollections.observableArrayList(
-		        "Dr. Maria Santos", "Dr. Ricardo Reyes", "Dr. Elena Cruz"
-		    ));
+            ComboBox<String> dentistBox = new ComboBox<>(FXCollections.observableArrayList(
+                "Dr. Maria Santos", "Dr. Ricardo Reyes", "Dr. Elena Cruz"
+            ));
 
-		    DatePicker datePicker = new DatePicker();
-		    datePicker.setDisable(true); 
+            DatePicker datePicker = new DatePicker();
+            datePicker.setDisable(true); 
 
-		    ComboBox<String> timeBox = new ComboBox<>();
-		    timeBox.setDisable(true); 
+            ComboBox<String> timeBox = new ComboBox<>();
+            timeBox.setDisable(true); 
 
-		    // --- NEW LOGIC: Listener to update constraints when a dentist is selected ---
-		    dentistBox.getSelectionModel().selectedItemProperty().addListener((obs, oldVal, newVal) -> {
-		        if (newVal != null) {
-		            String dbName = getDbDentistName(newVal);
+            dentistBox.getSelectionModel().selectedItemProperty().addListener((obs, oldVal, newVal) -> {
+                if (newVal != null) {
+                    String dbName = getDbDentistName(newVal);
 
-		            // Fetch availability and services simultaneously
-		            DoctorAvailability avail = Dao.getDoctorAvailability(dbName);
-		            List<String> availableServices = Dao.getDoctorServices(dbName);
+                    DoctorAvailability avail = Dao.getDoctorAvailability(dbName);
+                    List<String> availableServices = Dao.getDoctorServices(dbName);
 
-		            // Enable inputs
-		            datePicker.setDisable(false);
-		            timeBox.setDisable(false);
-		            serviceBox.setDisable(false);
+                    datePicker.setDisable(false);
+                    timeBox.setDisable(false);
+                    serviceBox.setDisable(false);
 
-		            // 1. Update Service Box dynamically based on the doctor's saved configuration
-		            serviceBox.getItems().clear();
-		            if (!availableServices.isEmpty()) {
-		                serviceBox.getItems().addAll(availableServices);
-		                serviceBox.setPromptText("Select a Service");
-		            } else {
-		                serviceBox.setPromptText("No services configured");
-		            }
+                    serviceBox.getItems().clear();
+                    if (!availableServices.isEmpty()) {
+                        serviceBox.getItems().addAll(availableServices);
+                        serviceBox.setPromptText("Select a Service");
+                    } else {
+                        serviceBox.setPromptText("No services configured");
+                    }
 
-		            // 2. Restrict DatePicker (Blocked Dates & Recurring Days)
-		            datePicker.setDayCellFactory(dp -> new DateCell() {
-		                @Override
-		                public void updateItem(LocalDate item, boolean empty) {
-		                    super.updateItem(item, empty);
-		                    if (empty || item == null) return;
+                    datePicker.setDayCellFactory(dp -> new DateCell() {
+                        @Override
+                        public void updateItem(LocalDate item, boolean empty) {
+                            super.updateItem(item, empty);
+                            if (empty || item == null) return;
 
-		                    if (item.isBefore(LocalDate.now())) { 
-		                        setDisable(true);
-		                        setStyle("-fx-background-color: #e0e0e0;");
-		                        return;
-		                    }
+                            if (item.isBefore(LocalDate.now())) { 
+                                setDisable(true);
+                                setStyle("-fx-background-color: #e0e0e0;");
+                                return;
+                            }
 
-		                    String dayName = item.getDayOfWeek().name();
+                            String dayName = item.getDayOfWeek().name();
 
-		                    if (!avail.recurringDays.contains(dayName) || avail.blockedDates.contains(item)) { 
-		                        setDisable(true);
-		                        setStyle("-fx-background-color: #ffcdd2;"); 
-		                    }
-		                }
-		            });
+                            if (!avail.recurringDays.contains(dayName) || avail.blockedDates.contains(item)) { 
+                                setDisable(true);
+                                setStyle("-fx-background-color: #ffcdd2;"); 
+                            }
+                        }
+                    });
 
-		            // 3. Populate TimeBox dynamically
-		            timeBox.getItems().clear();
-		            if (avail.startTime != null && avail.endTime != null) {
-		                int startHour = parseHour(avail.startTime);
-		                int endHour = parseHour(avail.endTime);
+                    timeBox.getItems().clear();
+                    if (avail.startTime != null && avail.endTime != null) {
+                        int startHour = parseHour(avail.startTime);
+                        int endHour = parseHour(avail.endTime);
 
-		                for (int h = startHour; h <= endHour; h++) {
-		                    timeBox.getItems().add(formatHour(h)); 
-		                }
-		            }
-		        }
-		    });
+                        for (int h = startHour; h <= endHour; h++) {
+                            timeBox.getItems().add(formatHour(h)); 
+                        }
+                    }
+                }
+            });
 
-		    if (existingAppointment != null) { 
-		        dentistBox.setValue(existingAppointment.getDentist()); 
-		        // Note: setting dentistBox triggers the listener, which populates the serviceBox.
-		        // Therefore, setting the serviceBox value must happen AFTER setting the dentistBox.
-		        serviceBox.setValue(existingAppointment.getService());
-		        datePicker.setValue(LocalDate.parse(existingAppointment.getDate()));
-		        timeBox.setValue(existingAppointment.getTime());
-		    }
-		
-		    grid.addRow(0, new Label("Service:"), serviceBox);
-		    grid.addRow(1, new Label("Dentist:"), dentistBox);
-		    grid.addRow(2, new Label("Date:"), datePicker);
-		    grid.addRow(3, new Label("Time:"), timeBox);
-		
-		    HBox formActions = new HBox(15);
-		    formActions.setAlignment(Pos.CENTER);
-		
-		    Button btnConfirm = new Button("Confirm");
-		    Button btnCancel = new Button("Cancel");
-		
-		    btnConfirm.setOnAction(e -> {
-		        if (existingAppointment != null) { 
-		        	Dao.updateBooking(existingAppointment.getId(), datePicker.getValue().toString(), timeBox.getValue(), getDbDentistName(dentistBox.getValue()), serviceBox.getValue(), null);
-		            applicationFunctions.showDialog("INFORMATION", "Successfully rescheduled appointment.", "Reschedule", "Reschedule Successful");
-		            showDashboardView(); 
-		        } else if(datePicker.getValue() != null && serviceBox.getValue() != null && dentistBox.getValue() != null && timeBox.getValue() != null) {
-		            // Check to ensure an invalid date wasn't manually typed
-		            if(datePicker.getEditor().getText().isEmpty() || timeBox.getValue() == null) {
-		                Alert alert = new Alert(Alert.AlertType.WARNING, "Please select a valid date and time from the available options.");
-		                alert.showAndWait();
-		                return;
-		            }
-		            applicationFunctions.showDialog("INFORMATION", "Successfully booked appointment.", "Booking", "Booking Confirmed");
-		            Dao.bookAppointment("test", datePicker.getValue().toString(), timeBox.getValue(), getDbDentistName(dentistBox.getValue()), serviceBox.getValue());
-		            showDashboardView(); 
-		        } else {
-		            Alert alert = new Alert(Alert.AlertType.WARNING);
-		            alert.setContentText("Please fill in all required fields.");
-		            alert.showAndWait();
-		        }
-		    });
-		
-		    btnCancel.setOnAction(e -> showDashboardView());
-		
-		    if(existingAppointment != null) {
-		        Button btnDelete = new Button("Delete");
-		        btnDelete.getStyleClass().add("btn-danger");
-		        
-		        btnDelete.setOnAction(e -> {
-		            boolean confirmDelete = applicationFunctions.showConfirmationDialog("Are you sure you want to delete this appointment?", "Delete Appointment", "Confirm Deletion");
-		            if (confirmDelete) {
-		                Dao.deleteBooking(existingAppointment.getId()); 
-		                applicationFunctions.showDialog("CONFIRMATION", "Successfully deleted appointment.", "Delete", "Deletion Successful");
-		            }
-		            showDashboardView(); 
-		        }); 
-		        
-		        formActions.getChildren().addAll(btnConfirm, btnCancel, btnDelete);
-		    } else {
-		        formActions.getChildren().addAll(btnConfirm, btnCancel);
-		    }
-		    
-		    formBox.getChildren().addAll(formTitle, grid, formActions);
-		    
-		    StackPane container = new StackPane(formBox);
-		    container.setPadding(new Insets(30));
-		    mainLayout.setCenter(container);
-		}
+            if (existingAppointment != null) { 
+                dentistBox.setValue(existingAppointment.getDentist()); 
+                serviceBox.setValue(existingAppointment.getService());
+                datePicker.setValue(LocalDate.parse(existingAppointment.getDate()));
+                timeBox.setValue(existingAppointment.getTime());
+            }
+        
+            grid.addRow(0, new Label("Service:"), serviceBox);
+            grid.addRow(1, new Label("Dentist:"), dentistBox);
+            grid.addRow(2, new Label("Date:"), datePicker);
+            grid.addRow(3, new Label("Time:"), timeBox);
+        
+            HBox formActions = new HBox(15);
+            formActions.setAlignment(Pos.CENTER);
+        
+            Button btnConfirm = new Button("Confirm");
+            Button btnCancel = new Button("Cancel");
+        
+            btnConfirm.setOnAction(e -> {
+                if (existingAppointment != null) { 
+                    Dao.updateBooking(existingAppointment.getId(), datePicker.getValue().toString(), timeBox.getValue(), getDbDentistName(dentistBox.getValue()), serviceBox.getValue(), null);
+                    applicationFunctions.showDialog("INFORMATION", "Successfully rescheduled appointment.", "Reschedule", "Reschedule Successful");
+                    showDashboardView(); 
+                } else if(datePicker.getValue() != null && serviceBox.getValue() != null && dentistBox.getValue() != null && timeBox.getValue() != null) {
+                    if(datePicker.getEditor().getText().isEmpty() || timeBox.getValue() == null) {
+                        Alert alert = new Alert(Alert.AlertType.WARNING, "Please select a valid date and time from the available options.");
+                        alert.showAndWait();
+                        return;
+                    }
+                    applicationFunctions.showDialog("INFORMATION", "Successfully booked appointment.", "Booking", "Booking Confirmed");
+                    Dao.bookAppointment(username, datePicker.getValue().toString(), timeBox.getValue(), getDbDentistName(dentistBox.getValue()), serviceBox.getValue());
+                    showDashboardView(); 
+                } else {
+                    Alert alert = new Alert(Alert.AlertType.WARNING);
+                    alert.setContentText("Please fill in all required fields.");
+                    alert.showAndWait();
+                }
+            });
+        
+            btnCancel.setOnAction(e -> showDashboardView());
+        
+            if(existingAppointment != null) {
+                Button btnDelete = new Button("Delete");
+                btnDelete.getStyleClass().add("btn-danger");
+                
+                btnDelete.setOnAction(e -> {
+                    boolean confirmDelete = applicationFunctions.showConfirmationDialog("Are you sure you want to delete this appointment?", "Delete Appointment", "Confirm Deletion");
+                    if (confirmDelete) {
+                        Dao.deleteBooking(existingAppointment.getId()); 
+                        applicationFunctions.showDialog("CONFIRMATION", "Successfully deleted appointment.", "Delete", "Deletion Successful");
+                    }
+                    showDashboardView(); 
+                }); 
+                
+                formActions.getChildren().addAll(btnConfirm, btnCancel, btnDelete);
+            } else {
+                formActions.getChildren().addAll(btnConfirm, btnCancel);
+            }
+            
+            formBox.getChildren().addAll(formTitle, grid, formActions);
+            
+            StackPane container = new StackPane(formBox);
+            container.setPadding(new Insets(30));
+            mainLayout.setCenter(container);
+        }
 
         public static class Appointment {
-        	private int id;
+            private int id;
             private String date, time, dentist, service, status;
             
             public Appointment(int id, String date, String time, String dentist, String service, String Status) {
-            	this.id = id;
+                this.id = id;
                 this.date = date; this.time = time; this.dentist = dentist; this.service = service; this.status = Status;
             }
             

@@ -248,9 +248,10 @@ public class Login extends JDialog {
                 // Run UI creation on the JavaFX Application Thread
                 javafx.application.Platform.runLater(() -> {
                      try {
-                         if (role.equals("PATIENT")) {
-                             new application.Main.App().start(new javafx.stage.Stage());
-                         } else if (role.equals("ADMIN")) {
+                    	 if (role.equals("PATIENT")) {
+                    		    application.Main.App app = new application.Main.App();
+                    		    app.start(new javafx.stage.Stage(), user.getUsername());
+                    	 } else if (role.equals("ADMIN")) {
                              new admin.AdminUI().start(new javafx.stage.Stage());
                          } else if (role.equals("DOCTOR")) {
                         	 application.Doctor doc = new application.Doctor();
