@@ -293,14 +293,35 @@ public class AdminUI extends Application {
             popup.initModality(Modality.APPLICATION_MODAL);
             popup.setTitle("Edit Appointment");
 
+            // START OF THE FORM IN THE EDIT POPUP
             TextField patientField = new TextField(selected.patientProperty().get());
             patientField.setDisable(true); // disable the patient field since we don't want to change the patient of the appointment, if you want to change it, you can remove this line and add a dropdown for the patients in the edit popup	
             // datepicker and automatically set the value of the datepicker to the date of the appointment, so that the user can see the original date of the appointment in the datepicker, and also make it easier for the user to change the date of the appointment if needed
+            // START OF THE DATEPICKER IN THE EDIT POPUP
             DatePicker datePicker = new DatePicker();
 			datePicker.setValue(java.time.LocalDate.parse(selected.dateProperty().get())); // set the value of the datepicker to the date of the appointment, so that the user can see the original date of the appointment in the datepicker, and also make it easier for the user to change the date of the appointment if needed
-            TextField timeField = new TextField(selected.timeProperty().get());
-            TextField dentistField = new TextField(selected.dentistProperty().get());
-            TextField serviceField = new TextField(selected.serviceProperty().get());
+			
+			// START OF THE DROPDOWN FOR THE TIME IN THE EDIT POPUP
+			ObservableList<String> timeOptions = FXCollections.observableArrayList("1:00 AM", "2:00 AM", "3:00 AM", "4:00 AM", "5:00 AM", "6:00 AM", "7:00 AM", "8:00 AM", "9:00 AM", "10:00 AM", "11:00 AM",
+					"12:00 PM", "1:00 PM", "2:00 PM", "3:00 PM", "4:00 PM", "5:00 PM", "6:00 PM", "7:00 PM", "8:00 PM", "9:00 PM", "10:00 PM", "11:00 PM");
+			ComboBox<String> timeField = new ComboBox<>(timeOptions);
+			timeField.setPromptText("Select time");
+			timeField.setValue(selected.timeProperty().get()); // set the value of the time field to the time of the appointment, so that the user can see the original time of the appointment in the time field, and also make it easier for the user to change the time of the appointment if needed
+            
+			// START OF THE DROPDOWN FOR THE DENTISTS IN THE EDIT POPUP
+			ObservableList<String> dentistOptions = FXCollections.observableArrayList("Dr. Maria Santos", "Dr. Ricardo Reyes", "Dr. Elena Cruz");
+			ComboBox<String> dentistField = new ComboBox<>(dentistOptions);
+			dentistField.setPromptText("Select dentist");
+			dentistField.setValue(selected.dentistProperty().get()); 
+			
+
+			// START OF THE DROPDOWN FOR THE SERVICES IN THE EDIT POPUP
+			ObservableList<String> serviceOptions = FXCollections.observableArrayList("Dental Checkup", "Tooth Cleaning", "Tooth Extraction", "Dental Filling", "Root Canal", "Braces");
+			ComboBox<String> serviceField = new ComboBox<>(serviceOptions);
+			serviceField.setPromptText("Select service");
+			serviceField.setValue(selected.serviceProperty().get());
+            
+            // START OF THE DROPDOWN FOR THE DENTISTS IN THE EDIT POPUP
             // set the status field to be a dropdown with the options "Cancelled", "Completed", "Pending"
             ObservableList<String> statusOptions = FXCollections.observableArrayList("Cancelled", "Completed", "Pending");
             ComboBox<String> statusField = new ComboBox<>(statusOptions);
@@ -324,9 +345,9 @@ public class AdminUI extends Application {
                 // the first condition here is to check if the date picker has a value, if it has a value, then we use the value of the date picker, if it doesn't have a value, then we use the original date of the appointment, this is to prevent the date from being changed to null if the user doesn't change the date in the edit popup
                 // it the datepicker is not null, then we use the value of the datepicker, if it is null, then we use the original date of the appointment, this is to prevent the date from being changed to null if the user doesn't change the date in the edit popup
                 String date = datePicker.getValue() != null ? datePicker.getValue().toString() : selected.dateProperty().get(); // if the date is not changed, use the original date
-                String time = timeField.getText();
-                String dentist = dentistField.getText();
-                String service = serviceField.getText();
+                String time = timeField.getValue() != null ? timeField.getValue() : selected.timeProperty().get(); // if the time is not changed, use the original time
+                String dentist = dentistField.getValue() != null ? dentistField.getValue().toLowerCase().replace("dr. ", "").replace(" ", "_") : selected.dentistProperty().get(); // if the dentist is not changed, use the original dentist, if the dentist is changed, then we convert it to the format that we need to store in the database (with underscores and without dr.); // if the dentist is not changed, use the original dentist
+                String service = serviceField.getValue() != null ? serviceField.getValue() : selected.serviceProperty().get(); // if the service is not changed, use the original service
                 // same as the date and time, if the status field is not null, then we use the value of the status field, if it is null, then we use the original status of the appointment, this is to prevent the status from being changed to null if the user doesn't change the status in the edit popup
                 String status = statusField.getValue() != null ? statusField.getValue() : selected.statusProperty().get(); // if the status is not changed, use the original status
                 
