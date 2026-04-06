@@ -25,6 +25,9 @@ public class AdminUI extends Application {
     private ObservableList<Appointment> appointments = FXCollections.observableArrayList();
     private static final int ROWS_PER_PAGE = 15;
     
+    // Elevate pagination to class scope
+    private Pagination pagination;
+    
     // function to read appointments from database and display it in the table
     
     private void loadAppointments() {
@@ -79,6 +82,29 @@ public class AdminUI extends Application {
 			System.out.println("❌ Failed to load patient count: " + e.getMessage());
 		}
 	}
+    
+    private void refreshTableData() {
+        // 1. Synchronize the master list with the database
+        loadAppointments();
+        
+        // 2. Safely recalculate total pages, preventing the 0-page exception
+        int newPageCount = (int) Math.ceil(appointments.size() / (double) ROWS_PER_PAGE);
+        pagination.setPageCount(Math.max(1, newPageCount));
+        
+        // 3. Manually calculate the mathematical subset bounds for the current page
+        int currentPage = pagination.getCurrentPageIndex();
+        int fromIndex = currentPage * ROWS_PER_PAGE;
+        int toIndex = Math.min(fromIndex + ROWS_PER_PAGE, appointments.size());
+        
+        // 4. Force the table to display the newly bounded subset
+        if (fromIndex < appointments.size()) {
+            table.setItems(FXCollections.observableArrayList(appointments.subList(fromIndex, toIndex)));
+        } else {
+            table.getItems().clear(); // Clears the view if deleting the last item left the page empty
+        }
+        
+        table.refresh();
+    }
 
     
     private void loadAppointmentCount(Label label) {
@@ -194,6 +220,9 @@ public class AdminUI extends Application {
 
         TableColumn<Appointment, String> serviceCol = new TableColumn<>("Service");
         serviceCol.setCellValueFactory(data -> data.getValue().serviceProperty());
+        
+        TableColumn<Appointment, String> statusCol = new TableColumn<>("Status");
+        statusCol.setCellValueFactory(data -> data.getValue().statusProperty());
 
         // ===== CENTER CELL FACTORY =====
         Callback<TableColumn<Appointment, String>, TableCell<Appointment, String>> centerCell =
@@ -212,6 +241,7 @@ public class AdminUI extends Application {
         patientCol.setCellFactory(centerCell);
         dentistCol.setCellFactory(centerCell);
         serviceCol.setCellFactory(centerCell);
+        statusCol.setCellFactory(centerCell);
 
 //        String centerStyle = "-fx-alignment: CENTER;";
 //        idCol.setStyle(centerStyle);
@@ -221,7 +251,7 @@ public class AdminUI extends Application {
 //        dentistCol.setStyle(centerStyle);
 //        serviceCol.setStyle(centerStyle);
 
-        table.getColumns().addAll(idCol, dateCol, timeCol, patientCol, dentistCol, serviceCol);
+        table.getColumns().addAll(idCol, dateCol, timeCol, patientCol, dentistCol, serviceCol, statusCol);
 
         table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
         table.setMaxWidth(Double.MAX_VALUE);
@@ -229,7 +259,8 @@ public class AdminUI extends Application {
         table.setStyle("-fx-border-color:green;");
 
         // ===== PAGINATOR =====
-        Pagination pagination = new Pagination((int) Math.ceil(appointments.size() / (double)ROWS_PER_PAGE), 0);
+        // Assign to the class-level field instead of creating a local variable
+        pagination = new Pagination((int) Math.ceil(appointments.size() / (double)ROWS_PER_PAGE), 0);
         pagination.setPageFactory(this::createPage);
 
 
@@ -250,24 +281,36 @@ public class AdminUI extends Application {
 
         // ===== EDIT POPUP =====
         editBtn.setOnAction(e -> {
+        	// set a custom size for this popup, so that it could fit the content of the popup, and also make it look better
+        	
             Appointment selected = table.getSelectionModel().getSelectedItem();
-            if (selected == null) return;
+            if (selected == null) {
+            	functions.applicationFunctions.showDialog("Please select an appointment to edit.", "No Selection", "Error", "ERROR");
+				return;
+            };
 
             Stage popup = new Stage();
             popup.initModality(Modality.APPLICATION_MODAL);
             popup.setTitle("Edit Appointment");
 
-            TextField dateField = new TextField(selected.dateProperty().get());
-            TextField timeField = new TextField(selected.timeProperty().get());
             TextField patientField = new TextField(selected.patientProperty().get());
+            patientField.setDisable(true); // disable the patient field since we don't want to change the patient of the appointment, if you want to change it, you can remove this line and add a dropdown for the patients in the edit popup	
+            // datepicker and automatically set the value of the datepicker to the date of the appointment, so that the user can see the original date of the appointment in the datepicker, and also make it easier for the user to change the date of the appointment if needed
+            DatePicker datePicker = new DatePicker();
+			datePicker.setValue(java.time.LocalDate.parse(selected.dateProperty().get())); // set the value of the datepicker to the date of the appointment, so that the user can see the original date of the appointment in the datepicker, and also make it easier for the user to change the date of the appointment if needed
+            TextField timeField = new TextField(selected.timeProperty().get());
             TextField dentistField = new TextField(selected.dentistProperty().get());
             TextField serviceField = new TextField(selected.serviceProperty().get());
-            TextField statusField = new TextField(selected.statusProperty().get()); // you can change this to whatever status you want, or you can add a dropdown for the status in the edit popup
-
+            // set the status field to be a dropdown with the options "Cancelled", "Completed", "Pending"
+            ObservableList<String> statusOptions = FXCollections.observableArrayList("Cancelled", "Completed", "Pending");
+            ComboBox<String> statusField = new ComboBox<>(statusOptions);
+            statusField.setPromptText("Select status");
+            statusField.setValue(selected.statusProperty().get()); // set the value of the status field to the status of the appointment, so that the user can see the original status of the appointment in the status field, and also make it easier for the user to change the status of the appointment if needed
+            
             VBox form = new VBox(10,
-                    new Label("Date"), dateField,
-                    new Label("Time"), timeField,
                     new Label("Patient"), patientField,
+                    new Label("Date"), datePicker,
+                    new Label("Time"), timeField,
                     new Label("Dentist"), dentistField,
                     new Label("Service"), serviceField,
                     new Label("Status"), statusField  // you can change this to whatever status you want, or you can add a dropdown for the status in the edit popup
@@ -276,53 +319,47 @@ public class AdminUI extends Application {
             Button saveBtn = new Button("Save");
 
             saveBtn.setOnAction(ev -> {
-                // Extract the true database primary key
                 int id = Integer.parseInt(selected.idProperty().get());
                 
-                String date = dateField.getText();
+                // the first condition here is to check if the date picker has a value, if it has a value, then we use the value of the date picker, if it doesn't have a value, then we use the original date of the appointment, this is to prevent the date from being changed to null if the user doesn't change the date in the edit popup
+                // it the datepicker is not null, then we use the value of the datepicker, if it is null, then we use the original date of the appointment, this is to prevent the date from being changed to null if the user doesn't change the date in the edit popup
+                String date = datePicker.getValue() != null ? datePicker.getValue().toString() : selected.dateProperty().get(); // if the date is not changed, use the original date
                 String time = timeField.getText();
                 String dentist = dentistField.getText();
                 String service = serviceField.getText();
-                String status = statusField.getText(); 
+                // same as the date and time, if the status field is not null, then we use the value of the status field, if it is null, then we use the original status of the appointment, this is to prevent the status from being changed to null if the user doesn't change the status in the edit popup
+                String status = statusField.getValue() != null ? statusField.getValue() : selected.statusProperty().get(); // if the status is not changed, use the original status
                 
-                // Execute the update against the specific ID
                 Dao.updateBooking(id, date, time, dentist, service, status);
                 
-                loadAppointments(); 
-                
-                // Rebuild the paginator to reflect the fresh data
-                pagination.setPageCount((int) Math.ceil(appointments.size() / (double)ROWS_PER_PAGE));
-                pagination.setPageFactory(AdminUI.this::createPage);
-                
-                table.refresh();
+                // Call the new unified refresh method
+                refreshTableData();
                 popup.close();
             });
 
             VBox layout = new VBox(10, form, saveBtn);
             layout.setPadding(new Insets(15));
 
-            popup.setScene(new Scene(layout, 300, 400));
+            popup.setScene(new Scene(layout, 300, 450));
             popup.showAndWait();
         });
 
         // ===== REMOVE =====
         removeBtn.setOnAction(e -> {
             Appointment selected = table.getSelectionModel().getSelectedItem();
-            // get the id of the selected appointment
             if (selected == null) return;
+            
             int id = Integer.parseInt(selected.idProperty().get());
             boolean confirmation = functions.applicationFunctions.showConfirmationDialog("Are you sure you want to delete this appointment?", "Confirm Deletion", "Delete Appointment");
-           if(confirmation) {
-        	   Dao.deleteBooking(id);
-        	   functions.applicationFunctions.showDialog("Appointment deleted successfully!", "Deletion Successful", "Success", "INFORMATION");
+            
+            if(confirmation) {
+                Dao.deleteBooking(id);
+                functions.applicationFunctions.showDialog("Appointment deleted successfully!", "Deletion Successful", "Success", "INFORMATION");
 
-        	   loadAppointments(); // refresh the table after deletion
-        	   loadAppointmentCount(appointmentsToday); // refresh the appointment count after deletion
-        	   
-               pagination.setPageCount((int) Math.ceil(appointments.size() / (double)ROWS_PER_PAGE));
-               pagination.setPageFactory(this::createPage);
-               table.refresh();
-           }
+                // Call the unified refresh method and update the statistics label
+                refreshTableData(); 
+                loadAppointmentCount(appointmentsToday); 
+            }
         });
 
         // TABLE WRAPPER
