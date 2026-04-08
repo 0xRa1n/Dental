@@ -22,6 +22,9 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 
+
+import java.util.function.UnaryOperator;
+
 import auth.Login;
 import functions.applicationFunctions;
 
@@ -39,9 +42,9 @@ public class Main {
             public String endTime;
         }
         
-        // Overloaded start method that takes the username
-        public void start(Stage primaryStage, String patientUsername) {
-            this.username = patientUsername;
+        // Overloaded start method that takes the name
+        public void start(Stage primaryStage, String patientName) {
+            this.username = patientName;
             
             mainLayout = new BorderPane();
             setupHeader(); 
@@ -52,6 +55,108 @@ public class Main {
 
             primaryStage.setScene(scene);
             primaryStage.show();
+        }
+       
+        
+        private void updateProfilePopup() {
+        	String currentEmail = "";
+        	String currentFullName = "";
+        	String currentPassword = "";
+        	int userId = 0;
+        	
+        	// sql to fetch current profile details and pre-fill the form
+        	String SQL = "SELECT username, email, password, full_name, id FROM users WHERE username = ?";
+        	try (Connection con = Dbconnection.getConnection();
+        		PreparedStatement ps = con.prepareStatement(SQL)) {
+        		if (con != null) {
+        			ps.setString(1, this.username);
+					try (ResultSet rs = ps.executeQuery()) {
+						if (rs.next()) {
+							// Pre-fill form fields with current profile data
+							currentEmail = rs.getString("email");
+							currentFullName = rs.getString("full_name");
+							currentPassword = rs.getString("password");
+							userId = rs.getInt("id");
+							// You can use these variables to set the initial values of the form fields
+						}
+					}
+        		}
+        	} catch (Exception e) {
+        		System.out.println("❌ Failed to load profile details: " + e.getMessage());        		
+        	}
+        	
+            Stage popup = new Stage();
+            popup.initModality(Modality.APPLICATION_MODAL);
+            popup.setTitle("Edit Profile");
+            
+            // Integer Only TextField
+            TextField txtID = new TextField();
+            txtID.setPromptText("User ID");
+            UnaryOperator<TextFormatter.Change> integerFilter = change -> {
+                String newText = change.getControlNewText();
+                if (newText.matches("\\d*")) {
+                    return change;
+                }
+                return null;
+            };
+            txtID.setTextFormatter(new TextFormatter<>(integerFilter));
+            txtID.setDisable(true); // ID should not be editable, just displayed
+
+            TextField txtName = new TextField(currentFullName);
+            txtName.setPromptText("Full Name");
+            
+            TextField txtUsername = new TextField(username);
+            txtUsername.setPromptText("Username");
+            
+            TextField txtPassword = new TextField(currentPassword);
+            txtPassword.setPromptText("Current Password");
+            
+            TextField txtEmail = new TextField(currentEmail);
+            txtEmail.setPromptText("Email");
+           
+
+            VBox form = new VBox(10,
+            		new Label("Full Name:"), txtName,
+            		new Label("Username:"), txtUsername,
+            		new Label("New Password:"), txtPassword,
+            		new Label("Email:"), txtEmail
+            );
+            
+            Button btnSave = new Button("Save");
+            
+            final int finalUserID = userId;
+            
+            btnSave.setOnAction(e -> {
+                System.out.println("Attempting to update profile for user: " + username);
+                String newName = txtName.getText().trim();
+                String newUsername = txtUsername.getText().trim();
+                String newPassword = txtPassword.getText().trim();
+                String newEmail = txtEmail.getText().trim();            	
+
+                // Update the database
+                Dao.updateUser(finalUserID, newName, newUsername, newPassword, newEmail, "patient");
+                
+                // Show success dialog
+                applicationFunctions.showDialog("INFORMATION", "Profile updated successfully.", "Profile Update", "Update Successful");
+                
+                // Update the local variable
+                this.username = newUsername; 
+                
+                // Close the popup first
+                popup.close();
+
+                // Safely refresh the dashboard UI on the JavaFX Application Thread
+                javafx.application.Platform.runLater(() -> {
+                    showDashboardView();
+                });
+            });
+
+
+            VBox layout = new VBox(10, form, btnSave);
+            layout.setPadding(new Insets(15));
+
+            popup.setScene(new Scene(layout, 300, 305));
+            popup.showAndWait();
         }
 
         // Default start method required by JavaFX
@@ -91,40 +196,7 @@ public class Main {
             Button btnLogout = new Button("Logout");
             btnLogout.getStyleClass().add("btn-danger");
             
-            btnProfile.setOnAction(e -> {
-                Stage popup = new Stage();
-                popup.initModality(Modality.APPLICATION_MODAL);
-                popup.setTitle("Edit Profile");
-                
-                TextField txtName = new TextField();
-                txtName.setPromptText("Full Name");
-                
-                TextField txtUsername = new TextField(username);
-                txtUsername.setPromptText("Username");
-                
-                PasswordField txtPassword = new PasswordField();
-                txtPassword.setPromptText("New Password");
-                
-                TextField txtEmail = new TextField();
-                txtEmail.setPromptText("Email");
-               
-
-                VBox form = new VBox(10,
-                		new Label("Full Name:"), txtName,
-                		new Label("Username:"), txtUsername,
-                		new Label("New Password:"), txtPassword,
-                		new Label("Email:"), txtEmail
-                );
-                
-                Button btnSave = new Button("Save");
-
-                VBox layout = new VBox(10, form, btnSave);
-                layout.setPadding(new Insets(15));
-
-                popup.setScene(new Scene(layout, 300, 450));
-                popup.showAndWait();
-
-            });
+            btnProfile.setOnAction(e -> updateProfilePopup());
             
             btnLogout.setOnAction(e -> {
                 Stage stage = (Stage) btnLogout.getScene().getWindow();
