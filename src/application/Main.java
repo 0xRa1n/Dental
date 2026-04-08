@@ -11,6 +11,7 @@ import javafx.scene.Scene;
 import javafx.scene.control.*;
 import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.layout.*;
+import javafx.stage.Modality;
 import javafx.stage.Stage;
 
 import java.sql.Connection;
@@ -89,6 +90,41 @@ public class Main {
             Button btnProfile = new Button("Profile");
             Button btnLogout = new Button("Logout");
             btnLogout.getStyleClass().add("btn-danger");
+            
+            btnProfile.setOnAction(e -> {
+                Stage popup = new Stage();
+                popup.initModality(Modality.APPLICATION_MODAL);
+                popup.setTitle("Edit Profile");
+                
+                TextField txtName = new TextField();
+                txtName.setPromptText("Full Name");
+                
+                TextField txtUsername = new TextField(username);
+                txtUsername.setPromptText("Username");
+                
+                PasswordField txtPassword = new PasswordField();
+                txtPassword.setPromptText("New Password");
+                
+                TextField txtEmail = new TextField();
+                txtEmail.setPromptText("Email");
+               
+
+                VBox form = new VBox(10,
+                		new Label("Full Name:"), txtName,
+                		new Label("Username:"), txtUsername,
+                		new Label("New Password:"), txtPassword,
+                		new Label("Email:"), txtEmail
+                );
+                
+                Button btnSave = new Button("Save");
+
+                VBox layout = new VBox(10, form, btnSave);
+                layout.setPadding(new Insets(15));
+
+                popup.setScene(new Scene(layout, 300, 450));
+                popup.showAndWait();
+
+            });
             
             btnLogout.setOnAction(e -> {
                 Stage stage = (Stage) btnLogout.getScene().getWindow();
