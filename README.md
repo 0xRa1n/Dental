@@ -46,3 +46,18 @@ CREATE TABLE doctor_blocked_dates (
     blocked_date DATE NOT NULL
 );
 ```
+3. Create an archive for deleted appointments
+```
+CREATE TABLE IF NOT EXISTS deleted_appointments (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    appointment_id INTEGER NOT NULL,
+    username TEXT NOT NULL,
+    date TEXT NOT NULL,
+    serviceTime TEXT NOT NULL,
+    dentist TEXT NOT NULL,
+    dentalService TEXT NOT NULL,
+    status TEXT NOT NULL,
+    notes TEXT NOT NULL,
+    FOREIGN KEY(appointment_id) REFERENCES appointments(id)
+);
+```
