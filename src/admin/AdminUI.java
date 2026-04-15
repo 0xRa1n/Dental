@@ -156,8 +156,10 @@ public class AdminUI extends Application {
         MenuItem patients = new MenuItem("Patients");
         MenuItem doctors = new MenuItem("Doctors");
         MenuItem admins = new MenuItem("Admins");
+        MenuItem reports = new MenuItem("Reports");
+        MenuItem archives = new MenuItem("Archives");
 
-        manageBtn.getItems().addAll(patients, doctors, admins);
+        manageBtn.getItems().addAll(patients, doctors, admins, reports, archives);
 
         Button logoutBtn = new Button("Logout");
 
@@ -386,7 +388,6 @@ public class AdminUI extends Application {
                 loadAppointmentCount(appointmentsToday); 
             }
         });
-
         // TABLE WRAPPER
         HBox tableWrapper = new HBox(table);
         tableWrapper.setAlignment(Pos.CENTER);
@@ -447,6 +448,13 @@ public class AdminUI extends Application {
 				ex.printStackTrace();
 			}
 		});
+        archives.setOnAction(e -> {
+            try {
+                new FileMaintenance_Archives().start(new Stage());
+            } catch (Exception ex) {
+                ex.printStackTrace();
+            }
+        });
         logoutBtn.setOnAction(e -> {
         	Stage s = (Stage) logoutBtn.getScene().getWindow();
 			s.close();
