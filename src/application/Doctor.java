@@ -1,6 +1,9 @@
 	package application;
 	
 	import javafx.application.Application;
+	import javafx.scene.image.Image;
+	import javafx.scene.image.ImageView;
+	
 	import javafx.beans.property.SimpleStringProperty;
 	import javafx.collections.FXCollections;
 	import javafx.collections.ObservableList;
@@ -294,8 +297,12 @@
 	    
 	    public void start(Stage stage, String doctorName) {
 	    	
-	        Label logo = new Label("logo");
-	        logo.setStyle("-fx-background-color: #1a5276; -fx-text-fill: white; -fx-padding: 15 25; -fx-font-weight: bold;");
+	    	Image image = new Image(getClass().getResourceAsStream("/images/logo.jpg"));
+	    	ImageView logo = new ImageView(image);
+
+	    	logo.setFitWidth(80);
+	    	logo.setFitHeight(50);
+	    	logo.setPreserveRatio(true);
 	        
 	        Label brand = new Label("CARES");
 	        brand.setStyle("-fx-font-weight: bold; -fx-font-size: 16;");

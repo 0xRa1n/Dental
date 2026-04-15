@@ -1,6 +1,8 @@
 package application;
 
 import javafx.application.Application;
+import javafx.scene.image.Image;
+import javafx.scene.image.ImageView;
 import passanduser.Dao;
 import passanduser.Dbconnection;
 import javafx.collections.FXCollections;
@@ -183,8 +185,12 @@ public class Main {
             HBox header = new HBox(0); 
             header.getStyleClass().add("header");
             
-            Label logo = new Label("logo");
-            logo.getStyleClass().add("logo-box");
+            Image image = new Image(getClass().getResourceAsStream("/images/logo.jpg"));
+            ImageView logo = new ImageView(image);
+
+            logo.setFitWidth(80);
+            logo.setFitHeight(50);
+            logo.setPreserveRatio(true);
             
             Label title = new Label("CARES");
             title.getStyleClass().add("logo-text-style"); 

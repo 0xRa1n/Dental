@@ -1,6 +1,8 @@
 package admin;
 
 import javafx.application.Application;
+import javafx.scene.image.Image;
+import javafx.scene.image.ImageView;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
@@ -71,7 +73,7 @@ public class AdminUI extends Application {
 					if(rs.next()) {
 						System.out.println(rs);
 						int total = rs.getInt(1); // in order to get the count of the patients, we need to set it to index 1, so that it could return the total of patients 
-						label.setText("Total patients: " + total);
+						label.setText("Total accounts: " + total);
 					}
 					
 				} catch(Exception e) {
@@ -140,10 +142,12 @@ public class AdminUI extends Application {
         HBox topBar = new HBox();
         topBar.setStyle("-fx-border-color:green; -fx-border-width:1;");
 
-        Label logo = new Label("logo");
-        logo.setMinWidth(80);
-        logo.setAlignment(Pos.CENTER);
-        logo.setStyle("-fx-background-color:#1f5f7a; -fx-text-fill:white; -fx-border-color:green;");
+        Image image = new Image(getClass().getResourceAsStream("/images/logo.jpg"));
+        ImageView logo = new ImageView(image);
+
+        logo.setFitWidth(80);
+        logo.setFitHeight(50);
+        logo.setPreserveRatio(true);
 
         Label title = new Label("CARES");
         title.setStyle("-fx-padding:10;");

@@ -10,11 +10,10 @@ import java.awt.event.MouseEvent;
 import passanduser.Dao;
 import model.User;
 
-import application.Main;
 import admin.AdminUI;
 
 public class Login extends JDialog {
-	private static boolean isJavaFxLaunched = false;
+    private static boolean isJavaFxLaunched = false;
     private static final long serialVersionUID = 1L;
     private JTextField txtUsername;
     private JPasswordField txtPassword;
@@ -228,46 +227,34 @@ public class Login extends JDialog {
         try {
             User user = Dao.login(username, password);
             if (user != null) {
-                System.out.println(user.getRole().toUpperCase());
-                
-                // Safely initialize JavaFX toolkit only once
+
                 if (!isJavaFxLaunched) {
                     isJavaFxLaunched = true;
                     try {
                         javafx.application.Platform.startup(() -> {});
-                    } catch (IllegalStateException e) {
-                        // Suppress if toolkit is already initialized
-                    }
+                    } catch (IllegalStateException e) {}
                 }
 
-                // Prevent JavaFX from shutting down when the last window is closed
-                javafx.application.Platform.setImplicitExit(false); 
+                javafx.application.Platform.setImplicitExit(false);
 
                 String role = user.getRole().toUpperCase();
 
-                // Run UI creation on the JavaFX Application Thread
                 javafx.application.Platform.runLater(() -> {
-                     try {
-                    	 if (role.equals("PATIENT")) {
-                    		    application.Main.App app = new application.Main.App();
-                    		    app.start(new javafx.stage.Stage(), user.getUsername());
-                    	 } else if (role.equals("ADMIN")) {
-                             new admin.AdminUI().start(new javafx.stage.Stage());
-                         } else if (role.equals("DOCTOR")) {
-                        	 application.Doctor doc = new application.Doctor();
-                             doc.start(new javafx.stage.Stage(), user.getUsername());
-                         } else {
-                             // Must run Swing dialog logically back on EDT, or just sysout
-                             SwingUtilities.invokeLater(() -> 
-                                 JOptionPane.showMessageDialog(null, "❌ Unrecognized user role: " + role)
-                             );
-                         }
-                     } catch (Exception ex) {
-                         ex.printStackTrace();
-                     }
+                    try {
+                        if (role.equals("PATIENT")) {
+                            application.Main.App app = new application.Main.App();
+                            app.start(new javafx.stage.Stage(), user.getUsername());
+                        } else if (role.equals("ADMIN")) {
+                            new admin.AdminUI().start(new javafx.stage.Stage());
+                        } else if (role.equals("DOCTOR")) {
+                            application.Doctor doc = new application.Doctor();
+                            doc.start(new javafx.stage.Stage(), user.getUsername());
+                        }
+                    } catch (Exception ex) {
+                        ex.printStackTrace();
+                    }
                 });
 
-                // Close the login window
                 dispose();
                 Window parentWindow = SwingUtilities.getWindowAncestor(this);
                 if (parentWindow != null) {
@@ -284,24 +271,83 @@ public class Login extends JDialog {
             }
         } catch (Exception ex) {
             ex.printStackTrace();
-            JOptionPane.showMessageDialog(this, "Login Error: " + ex.getMessage(),
-                "Error", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
+    // SPLASH SCREEN WITH FIXED IMAGE PATH
+    static class SplashScreen extends JWindow {
+        public SplashScreen() {
+            JPanel panel = new JPanel();
+            panel.setBackground(Color.WHITE);
+            panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
+
+            panel.add(Box.createVerticalStrut(20));
+
+            JLabel logo = new JLabel();
+            logo.setAlignmentX(Component.CENTER_ALIGNMENT);
+
+            try {
+                ImageIcon icon = new ImageIcon(getClass().getResource("/images/logo.jpg"));
+                Image img = icon.getImage().getScaledInstance(120, 120, Image.SCALE_SMOOTH);
+                logo.setIcon(new ImageIcon(img));
+            } catch (Exception e) {
+                logo.setText("Logo not found");
+            }
+
+            panel.add(logo);
+
+            panel.add(Box.createVerticalStrut(15));
+
+            JLabel title = new JLabel("Welcome to CARES!");
+            title.setFont(new Font("Arial", Font.BOLD, 20));
+            title.setForeground(new Color(41, 128, 185));
+            title.setAlignmentX(Component.CENTER_ALIGNMENT);
+
+            panel.add(title);
+
+            panel.add(Box.createVerticalStrut(15));
+
+            JProgressBar bar = new JProgressBar();
+            bar.setIndeterminate(true);
+            bar.setMaximumSize(new Dimension(200, 20));
+            bar.setAlignmentX(Component.CENTER_ALIGNMENT);
+
+            panel.add(bar);
+
+            add(panel);
+            setSize(350, 300);
+            setLocationRelativeTo(null);
+        }
+
+        public void showSplash(Runnable after) {
+            setVisible(true);
+
+            Timer timer = new Timer(2500, e -> {
+                ((Timer) e.getSource()).stop();
+                dispose();
+                after.run();
+            });
+
+            timer.setRepeats(false);
+            timer.start();
         }
     }
 
     public static void main(String[] args) {
         try {
             UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
+        } catch (Exception e) {}
 
         JFrame parent = new JFrame();
         parent.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 
         SwingUtilities.invokeLater(() -> {
-            Login login = new Login(parent);
-            login.setVisible(true);
+            SplashScreen splash = new SplashScreen();
+
+            splash.showSplash(() -> {
+                Login login = new Login(parent);
+                login.setVisible(true);
+            });
         });
     }
 }
