@@ -236,17 +236,45 @@ public class Main {
 
         private void loadAppointments() {
             appointmentList.clear();
-            String sql = "SELECT id, date, serviceTime, dentist, status, dentalService FROM appointments WHERE username = ?";
+            String sql = "SELECT id, date, serviceDate, serviceTime, dentist, status, dentalService FROM appointments WHERE username = ?";
             try (Connection con = Dbconnection.getConnection();
                  PreparedStatement ps = con.prepareStatement(sql)) {
-                
+
                 if (con != null) {
                     ps.setString(1, this.username);
                     try (ResultSet rs = ps.executeQuery()) {
                         while (rs.next()) {
+                            String dateStr;
+                            String serviceDateStr;
+                            
+                            // Process date field
+                            try {
+                                java.sql.Timestamp timestamp = rs.getTimestamp("date");
+                                if (timestamp != null) {
+                                    dateStr = new java.sql.Date(timestamp.getTime()).toString();
+                                } else {
+                                    dateStr = LocalDate.now().toString();
+                                }
+                            } catch (Exception e) {
+                                dateStr = rs.getString("date");
+                            }
+                            
+                            // Process serviceDate field (same as date)
+                            try {
+                                java.sql.Timestamp timestamp = rs.getTimestamp("serviceDate");
+                                if (timestamp != null) {
+                                    serviceDateStr = new java.sql.Date(timestamp.getTime()).toString();
+                                } else {
+                                    serviceDateStr = LocalDate.now().toString();
+                                }
+                            } catch (Exception e) {
+                                serviceDateStr = rs.getString("serviceDate");
+                            }
+
                             appointmentList.add(new Appointment(
                                 rs.getInt("id"),
-                                rs.getString("date"),
+                                dateStr,
+                                serviceDateStr,
                                 rs.getString("serviceTime"),
                                 getDisplayDentistName(rs.getString("dentist")),
                                 rs.getString("dentalService"),
@@ -257,6 +285,7 @@ public class Main {
                 }
             } catch (Exception e) {
                 System.out.println("❌ Failed to load appointments: " + e.getMessage());
+                e.printStackTrace();
             }
         }
 
@@ -275,6 +304,8 @@ public class Main {
             table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
             table.setPrefHeight(450);
 
+            TableColumn<Appointment, String> colserviceDate = new TableColumn<>("Service Date");
+            colserviceDate.setCellValueFactory(new PropertyValueFactory<>("serviceDate"));
             TableColumn<Appointment, String> colDate = new TableColumn<>("Date");
             colDate.setCellValueFactory(new PropertyValueFactory<>("date"));
             TableColumn<Appointment, String> colTime = new TableColumn<>("Time");
@@ -286,7 +317,7 @@ public class Main {
             TableColumn<Appointment, String> colStatus = new TableColumn<>("Status");
             colStatus.setCellValueFactory(new PropertyValueFactory<>("status"));
 
-            table.getColumns().addAll(colDate, colTime, colDentist, colService, colStatus);
+            table.getColumns().addAll(colserviceDate, colDate, colTime, colDentist, colService, colStatus);
 
             HBox actionButtons = new HBox(20);
             actionButtons.setAlignment(Pos.CENTER);
@@ -460,20 +491,27 @@ public class Main {
 
         public static class Appointment {
             private int id;
-            private String date, time, dentist, service, status;
+            private String date, serviceDate, time, dentist, service, status;
             
-            public Appointment(int id, String date, String time, String dentist, String service, String Status) {
+            public Appointment(int id, String date, String serviceDate, String time, String dentist, String service, String Status) {
                 this.id = id;
-                this.date = date; this.time = time; this.dentist = dentist; this.service = service; this.status = Status;
+                this.date = date;
+                this.serviceDate = serviceDate;
+                this.time = time;
+                this.dentist = dentist;
+                this.service = service;
+                this.status = Status;
             }
             
             public int getId() { return id; } 
             public String getDate() { return date; }
+            public String getServiceDate() { return serviceDate; }
             public String getTime() { return time; }
             public String getDentist() { return dentist; }
             public String getService() { return service; }
             public String getStatus() { return status; }
         }
+
     }
 
     public static void main(String[] args) { Application.launch(App.class, args); }

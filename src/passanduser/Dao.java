@@ -316,6 +316,7 @@ public class Dao {
 		}
 		
 	}
+	// in Dao.java
 	public static void deleteBooking(int id) {
 	    Connection con = null;
 	    PreparedStatement psSelect = null;
@@ -332,7 +333,7 @@ public class Dao {
 
 	        con.setAutoCommit(false);
 
-	        // 1\) Read appointment row
+	        // 1) Read appointment row
 	        String selectSql = "SELECT id, username, date, serviceTime, dentist, dentalService, status, notes FROM appointments WHERE id=?";
 	        psSelect = con.prepareStatement(selectSql);
 	        psSelect.setInt(1, id);
@@ -344,7 +345,7 @@ public class Dao {
 	            return;
 	        }
 
-	        // 2\) Insert into deleted\_appointments
+	        // 2) Insert into deleted_appointments
 	        String insertDeletedSql =
 	            "INSERT INTO deleted_appointments " +
 	            "(appointment_id, username, date, serviceTime, dentist, dentalService, status, notes) " +
@@ -352,7 +353,8 @@ public class Dao {
 	        psInsertDeleted = con.prepareStatement(insertDeletedSql);
 	        psInsertDeleted.setInt(1, rs.getInt("id"));
 	        psInsertDeleted.setString(2, rs.getString("username"));
-	        psInsertDeleted.setString(3, rs.getString("date"));
+	        // Correctly format the date from the DATE column to a String
+	        psInsertDeleted.setString(3, rs.getDate("date").toString());
 	        psInsertDeleted.setString(4, rs.getString("serviceTime"));
 	        psInsertDeleted.setString(5, rs.getString("dentist"));
 	        psInsertDeleted.setString(6, rs.getString("dentalService"));
@@ -366,7 +368,7 @@ public class Dao {
 	            return;
 	        }
 
-	        // 3\) Delete from appointments
+	        // 3) Delete from appointments
 	        String deleteSql = "DELETE FROM appointments WHERE id=?";
 	        psDelete = con.prepareStatement(deleteSql);
 	        psDelete.setInt(1, id);
@@ -386,6 +388,7 @@ public class Dao {
 	            if (con != null) con.rollback();
 	        } catch (SQLException ignored) {}
 	        System.out.println("❌ Deletion Error: " + e.getMessage());
+	        e.printStackTrace();
 	    } finally {
 	        closeSafely(rs, psSelect, null);
 	        closeSafely(null, psInsertDeleted, null);
@@ -418,66 +421,65 @@ public class Dao {
 		}
 		
 	}
-	public static void updateBooking(int id, String date, String serviceTime, String dentist, String dentalService, String status) {
-        Connection con = null;
-        PreparedStatement ps = null;
-        
-        try {
-            con = Dbconnection.getConnection();
-            if (con == null) {
-                System.out.println("Database connection failed!");
-                return;
-            }
+	public static void updateBooking(int id, String serviceDate, String time, String dentist, String service, String status) {
+	    String sql = "UPDATE appointments SET serviceDate = ?, serviceTime = ?, dentist = ?, dentalService = ?, status = ? WHERE id = ?";
+	    try (Connection con = Dbconnection.getConnection();
+	         PreparedStatement ps = con.prepareStatement(sql)) {
+	        
+	        ps.setString(1, serviceDate);  // This should be serviceDate, NOT date
+	        ps.setString(2, time);
+	        ps.setString(3, dentist);
+	        ps.setString(4, service);
+	        ps.setString(5, status);
+	        ps.setInt(6, id);
+	        
+	        ps.executeUpdate();
+	        System.out.println("✅ Appointment updated successfully");
+	    } catch (Exception e) {
+	        System.out.println("❌ Failed to update appointment: " + e.getMessage());
+	        e.printStackTrace();
+	    }
+	}
 
-            // Target the specific row using the primary key 'id'
-            String sql = "UPDATE appointments SET date=?, serviceTime=?, dentist=?, dentalService=?, status=? WHERE id=?";
-            ps = con.prepareStatement(sql);
-            ps.setString(1, date);
-            ps.setString(2, serviceTime);
-            ps.setString(3, dentist);
-            ps.setString(4, dentalService);
-            ps.setString(5, status);
-            ps.setInt(6, id); 
 
-            boolean success = ps.executeUpdate() > 0;
-            if(success) System.out.println("Appointment updated for ID " + id);
+	public static void bookAppointment(String username, String date, String time, String dentist, String service) {
+	    String sql = "INSERT INTO appointments (username, serviceDate, date, serviceTime, dentist, dentalService, status, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+	    try (Connection con = Dbconnection.getConnection();
+	         PreparedStatement ps = con.prepareStatement(sql)) {
+	        
+	        ps.setString(1, username);
+	        ps.setString(2, date);  // Should be YYYY-MM-DD format only
+	        // get the current date in YYYY-MM-DD format for the 'date' column
+	        String currentDate = java.time.LocalDate.now().toString();
+	        ps.setString(3, currentDate);  // Store the booking date as the current date
+	        ps.setString(4, time);  // Time stored separately in serviceTime
+	        ps.setString(5, dentist);
+	        ps.setString(6, service);
+	        ps.setString(7, "Pending");
+	        ps.setString(8, "");
+	        
+	        ps.executeUpdate();
+	    } catch (Exception e) {
+	        System.out.println("❌ Failed to book appointment: " + e.getMessage());
+	        e.printStackTrace();
+	    }
+	}
 
-        } catch (Exception e) {
-            System.out.println("Update Error: " + e.getMessage());
-        } finally {
-            closeSafely(null, ps, con);
-        }
-    }
-	public static void bookAppointment(String username, String date, String serviceTime, String dentist, String dentalService) {
-		Connection con = null;
-		PreparedStatement ps = null;
-		
-		try {
-			con = Dbconnection.getConnection();
-			if (con == null) {
-				System.out.println("❌ Database connection failed!");
-				return;
-			}
-
-			String sql = "INSERT INTO appointments (username, date, serviceTime, dentist, dentalService, status, notes) VALUES (?, ?, ?, ?, ?, ?, ?)";
-			ps = con.prepareStatement(sql);
-			ps.setString(1, username);
-			ps.setString(2, date);
-			ps.setString(3, serviceTime);
-			ps.setString(4, dentist);
-			ps.setString(5, dentalService);
-			ps.setString(6, "Pending");
-			ps.setString(7, ""); // Default empty notes
-
-			boolean success = ps.executeUpdate() > 0;
-			if(success) System.out.println("✅ Appointment booked for " + username + " with Dr. " + dentist + " on " + date);
-
-		} catch (Exception e) {
-			System.out.println("❌ Booking Error: " + e.getMessage());
-		} finally {
-			closeSafely(null, ps, con);
-		}
-		
+	private static String formatDateToYYYYMMDD(String date) {
+	    if (date == null || date.isEmpty()) {
+	        return java.time.LocalDate.now().toString();
+	    }
+	    
+	    try {
+	        // If already in YYYY-MM-DD format, return as-is
+	        if (date.matches("\\d{4}-\\d{2}-\\d{2}")) {
+	            return date;
+	        }
+	        return date;
+	    } catch (Exception e) {
+	        System.out.println("❌ Date formatting error: " + e.getMessage());
+	        return java.time.LocalDate.now().toString();
+	    }
 	}
 	
 	public static void readAppointments(String username) {

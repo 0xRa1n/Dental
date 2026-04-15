@@ -21,6 +21,11 @@ import passanduser.Dao;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 
+import java.time.DayOfWeek;
+import java.time.LocalDate;
+
+import application.Main.App.Appointment;
+
 public class AdminUI extends Application {
 
     private TableView<Appointment> table = new TableView<>();
@@ -30,38 +35,122 @@ public class AdminUI extends Application {
     // Elevate pagination to class scope
     private Pagination pagination;
     
-    // function to read appointments from database and display it in the table
-    
-    private void loadAppointments() {
-    	// clear the table first
-    	appointments.clear();
-    	
-    	String sql = "SELECT id, date, serviceTime, username, dentist, dentalService, status FROM appointments";
-    	
-    	try (Connection con = Dbconnection.getConnection();
-                PreparedStatement ps = con.prepareStatement(sql)){
-    		if(con != null) {
-    			try (ResultSet rs = ps.executeQuery()) {
-					while(rs.next()) {
-						int id = rs.getInt("id");
-						String date = rs.getString("date");
-						String time = rs.getString("serviceTime");
-						String patient = rs.getString("username");
-						String dentist = rs.getString("dentist");
-						String service = rs.getString("dentalService");
-						String status = rs.getString("status");
-						
-						appointments.add(new Appointment(id, date, time, patient, dentist, service, status));
-					}
-    				
-    			} catch(Exception e) {
-    				System.out.println("❌ Failed to load appointments: " + e.getMessage());
-    			}
-    		} 
-    	} catch (Exception e) {
-            System.out.println("❌ Failed to load appointments: " + e.getMessage());
+    private void debugDateFormat() {
+        String sql = "SELECT date, typeof(date), status FROM appointments LIMIT 5";
+        try (Connection con = Dbconnection.getConnection();
+             PreparedStatement ps = con.prepareStatement(sql)) {
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    System.out.println("Date: " + rs.getString("date") + " | Type: " + rs.getString("typeof(date)") + " | Status: " + rs.getString("status"));
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
         }
     }
+
+    
+    private void loadAppointments() {
+        appointments.clear();
+        String sql = "SELECT id, username, date, serviceDate, serviceTime, dentist, status, dentalService FROM appointments";
+        try (Connection con = Dbconnection.getConnection();
+             PreparedStatement ps = con.prepareStatement(sql)) {
+            if (con != null) {
+                try (ResultSet rs = ps.executeQuery()) {
+                    while (rs.next()) {
+                        int id = rs.getInt("id");
+                        String date;
+                        String serviceDate;
+                        
+                        try {
+                            java.sql.Timestamp timestamp = rs.getTimestamp("date");
+                            date = timestamp != null ? new java.sql.Date(timestamp.getTime()).toString() : LocalDate.now().toString();
+                        } catch (Exception e) {
+                            date = rs.getString("date");
+                        }
+                        
+                        try {
+                            java.sql.Timestamp timestamp = rs.getTimestamp("serviceDate");
+                            serviceDate = timestamp != null ? new java.sql.Date(timestamp.getTime()).toString() : LocalDate.now().toString();
+                        } catch (Exception e) {
+                            serviceDate = rs.getString("serviceDate");
+                        }
+                        
+                        String time = rs.getString("serviceTime");
+                        String patient = rs.getString("username");
+                        String dentist = rs.getString("dentist");
+                        String service = rs.getString("dentalService");
+                        String status = rs.getString("status");
+
+                        appointments.add(new Appointment(id, date, serviceDate, time, patient, dentist, service, status));
+                    }
+                } catch (Exception e) {
+                    System.out.println("❌ Failed to load appointments: " + e.getMessage());
+                    e.printStackTrace();
+                }
+            }
+        } catch (Exception e) {
+            System.out.println("❌ Failed to load appointments: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+
+    private int countAppointmentsByRangeAndStatus(LocalDate fromInclusive, LocalDate toExclusive, String status) {
+        String fromDate = fromInclusive.toString();
+        String toDate = toExclusive.toString();
+        
+        // Use serviceDate instead of date
+        String sql = "SELECT COUNT(*) FROM appointments WHERE serviceDate >= ? AND serviceDate < ? AND status = ?";
+        try (Connection con = Dbconnection.getConnection();
+             PreparedStatement ps = con.prepareStatement(sql)) {
+
+            ps.setString(1, fromDate);
+            ps.setString(2, toDate);
+            ps.setString(3, status);
+
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    int count = rs.getInt(1);
+                    System.out.println("DEBUG: Found " + count + " appointments between " + fromDate + " and " + toDate + " with status '" + status + "'");
+                    return count;
+                }
+            }
+        } catch (Exception e) {
+            System.out.println("❌ Failed to count appointments for status '" + status + "' in range " + fromDate + " to " + toDate);
+            e.printStackTrace();
+        }
+        return 0;
+    }
+
+    private void loadDailyAndWeeklyCounts(
+    	    Label dailyCompleted, Label dailyPending,
+    	    Label weeklyCompleted, Label weeklyPending) {
+
+    	    LocalDate today = LocalDate.now();
+    	    LocalDate tomorrow = today.plusDays(1);
+
+    	    LocalDate weekStart = today.with(DayOfWeek.MONDAY);
+    	    LocalDate weekEnd = weekStart.plusWeeks(1);
+
+    	    // Daily counts: only TODAY's serviceDate
+    	    int dailyComp = countAppointmentsByRangeAndStatus(today, tomorrow, "Completed");
+    	    int dailyPend = countAppointmentsByRangeAndStatus(today, tomorrow, "Pending");
+    	    
+    	    // Weekly counts: from Monday to Sunday (end of current week), excluding today (already counted in daily)
+    	    int weeklyComp = countAppointmentsByRangeAndStatus(weekStart, today, "Completed") + 
+    	                     countAppointmentsByRangeAndStatus(tomorrow, weekEnd, "Completed");
+    	    int weeklyPend = countAppointmentsByRangeAndStatus(weekStart, today, "Pending") + 
+    	                     countAppointmentsByRangeAndStatus(tomorrow, weekEnd, "Pending");
+
+    	    dailyCompleted.setText("Completed Appointments: " + dailyComp);
+    	    dailyPending.setText("Pending Appointments: " + dailyPend);
+    	    weeklyCompleted.setText("Completed Appointments: " + weeklyComp);
+    	    weeklyPending.setText("Pending Appointments: " + weeklyPend);
+    	}
+
+
+
     
     private void loadPatientCount(Label label) {
 		String sql = "SELECT COUNT(*) FROM users";
@@ -132,8 +221,10 @@ public class AdminUI extends Application {
     public void start(Stage stage) {
         stage.setTitle("CARES Dashboard");
         stage.setWidth(900);
-        stage.setHeight(770);
+        stage.setHeight(800);
         loadAppointments();
+        debugDateFormat();  // Add this line here
+
 
         BorderPane root = new BorderPane();
         root.setStyle("-fx-background-color:#e6e6e6; -fx-border-color:green; -fx-border-width:2;");
@@ -156,10 +247,9 @@ public class AdminUI extends Application {
         MenuItem patients = new MenuItem("Patients");
         MenuItem doctors = new MenuItem("Doctors");
         MenuItem admins = new MenuItem("Admins");
-        MenuItem reports = new MenuItem("Reports");
         MenuItem archives = new MenuItem("Archives");
 
-        manageBtn.getItems().addAll(patients, doctors, admins, reports, archives);
+        manageBtn.getItems().addAll(patients, doctors, admins, archives);
 
         Button logoutBtn = new Button("Logout");
 
@@ -176,32 +266,65 @@ public class AdminUI extends Application {
         reportsTitle.setMaxWidth(Double.MAX_VALUE);
         reportsTitle.setAlignment(Pos.CENTER);
 
-        // ===== REPORTS BOX (ONLY CONTENT INSIDE) =====
-        VBox reportsBox = new VBox(5);
-        reportsBox.setPadding(new Insets(10));
-        reportsBox.setStyle("-fx-border-color:green;");
-        reportsBox.setAlignment(Pos.CENTER);
-        reportsBox.setMaxWidth(Double.MAX_VALUE);
-//
-//        Label totalPatients = new Label("Total patients: 120");
-        
-        // count all the patients in the database and display it in the label
+     // ===== REPORTS ROW (3 CARDS) =====
+        HBox reportsRow = new HBox(25);
+        reportsRow.setAlignment(Pos.CENTER);
+        reportsRow.setMaxWidth(Double.MAX_VALUE);
 
-        Label totalPatients = new Label("Total patients: Loading...");
-        loadPatientCount(totalPatients);
-        
-        Label appointmentsToday = new Label("Total appointments: Loading...");
-        loadAppointmentCount(appointmentsToday);
+        // Totals card (dynamic from DB)
+        Label totalsTitle = new Label("Totals");
 
-        for (Label lbl : new Label[]{totalPatients, appointmentsToday}) {
+        Label totalAccounts = new Label("Accounts: Loading...");
+        loadPatientCount(totalAccounts);
+
+        Label totalAppointments = new Label("Appointments: Loading...");
+        loadAppointmentCount(totalAppointments);
+
+        // Daily card
+        Label dailyTitle = new Label("Daily");
+        Label dailyCompleted = new Label("Completed Appointments: Loading...");
+        Label dailyIncomplete = new Label("Pending Appointments: Loading...");
+
+        // Weekly card
+        Label weeklyTitle = new Label("Weekly");
+        Label weeklyCompleted = new Label("Completed Appointments: Loading...");
+        Label weeklyIncomplete = new Label("Pending Appointments: Loading...");
+
+        // Apply daily/weekly DB counts here
+        loadDailyAndWeeklyCounts(
+            dailyCompleted, dailyIncomplete,
+            weeklyCompleted, weeklyIncomplete
+        );
+
+        VBox totalsCard = new VBox(8, totalsTitle, totalAccounts, totalAppointments);
+        totalsCard.setPadding(new Insets(12));
+        totalsCard.setAlignment(Pos.CENTER);
+        totalsCard.setPrefWidth(290);
+        totalsCard.setStyle("-fx-border-color:green; -fx-border-width:1.5;");
+
+        VBox dailyCard = new VBox(8, dailyTitle, dailyCompleted, dailyIncomplete);
+        dailyCard.setPadding(new Insets(12));
+        dailyCard.setAlignment(Pos.CENTER);
+        dailyCard.setPrefWidth(290);
+        dailyCard.setStyle("-fx-border-color:green; -fx-border-width:1.5;");
+
+        VBox weeklyCard = new VBox(8, weeklyTitle, weeklyCompleted, weeklyIncomplete);
+        weeklyCard.setPadding(new Insets(12));
+        weeklyCard.setAlignment(Pos.CENTER);
+        weeklyCard.setPrefWidth(290);
+        weeklyCard.setStyle("-fx-border-color:green; -fx-border-width:1.5;");
+
+        // Center labels
+        for (Label lbl : new Label[]{
+                totalAccounts, totalAppointments,
+                dailyCompleted, dailyIncomplete,
+                weeklyCompleted, weeklyIncomplete
+        }) {
             lbl.setMaxWidth(Double.MAX_VALUE);
             lbl.setAlignment(Pos.CENTER);
         }
 
-        reportsBox.getChildren().addAll(
-                totalPatients,
-                appointmentsToday
-        );
+        reportsRow.getChildren().addAll(totalsCard, dailyCard, weeklyCard);
 
         // ===== TABLE =====
         Label appTitle = new Label("Appointments");
@@ -214,6 +337,10 @@ public class AdminUI extends Application {
 
         TableColumn<Appointment, String> dateCol = new TableColumn<>("Date");
         dateCol.setCellValueFactory(data -> data.getValue().dateProperty());
+        
+     // Add serviceDate column to the table
+        TableColumn<Appointment, String> serviceDateCol = new TableColumn<>("Service Date");
+        serviceDateCol.setCellValueFactory(data -> data.getValue().serviceDateProperty());
 
         TableColumn<Appointment, String> timeCol = new TableColumn<>("Time");
         timeCol.setCellValueFactory(data -> data.getValue().timeProperty());
@@ -243,6 +370,7 @@ public class AdminUI extends Application {
 
         idCol.setCellFactory(centerCell);
         dateCol.setCellFactory(centerCell);
+        serviceDateCol.setCellFactory(centerCell);
         timeCol.setCellFactory(centerCell);
         patientCol.setCellFactory(centerCell);
         dentistCol.setCellFactory(centerCell);
@@ -257,7 +385,8 @@ public class AdminUI extends Application {
 //        dentistCol.setStyle(centerStyle);
 //        serviceCol.setStyle(centerStyle);
 
-        table.getColumns().addAll(idCol, dateCol, timeCol, patientCol, dentistCol, serviceCol, statusCol);
+     // Add to columns list (after dateCol)
+        table.getColumns().addAll(idCol, dateCol, serviceDateCol, timeCol, patientCol, dentistCol, serviceCol, statusCol);
 
         table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
         table.setMaxWidth(Double.MAX_VALUE);
@@ -304,8 +433,13 @@ public class AdminUI extends Application {
             patientField.setDisable(true); // disable the patient field since we don't want to change the patient of the appointment, if you want to change it, you can remove this line and add a dropdown for the patients in the edit popup	
             // datepicker and automatically set the value of the datepicker to the date of the appointment, so that the user can see the original date of the appointment in the datepicker, and also make it easier for the user to change the date of the appointment if needed
             // START OF THE DATEPICKER IN THE EDIT POPUP
-            DatePicker datePicker = new DatePicker();
-			datePicker.setValue(java.time.LocalDate.parse(selected.dateProperty().get())); // set the value of the datepicker to the date of the appointment, so that the user can see the original date of the appointment in the datepicker, and also make it easier for the user to change the date of the appointment if needed
+         // In the editBtn.setOnAction section, replace the form with:
+            TextField dateField = new TextField(selected.dateProperty().get());
+            dateField.setDisable(true); // Booking date is read-only
+
+            DatePicker serviceDatePicker = new DatePicker();
+            serviceDatePicker.setValue(java.time.LocalDate.parse(selected.serviceDateProperty().get()));
+
 			
 			// START OF THE DROPDOWN FOR THE TIME IN THE EDIT POPUP
 			ObservableList<String> timeOptions = FXCollections.observableArrayList("1:00 AM", "2:00 AM", "3:00 AM", "4:00 AM", "5:00 AM", "6:00 AM", "7:00 AM", "8:00 AM", "9:00 AM", "10:00 AM", "11:00 AM",
@@ -335,39 +469,43 @@ public class AdminUI extends Application {
             statusField.setValue(selected.statusProperty().get()); // set the value of the status field to the status of the appointment, so that the user can see the original status of the appointment in the status field, and also make it easier for the user to change the status of the appointment if needed
             
             VBox form = new VBox(10,
+                    new Label("Booking Date"), dateField,
+                    new Label("Service Date"), serviceDatePicker,
                     new Label("Patient"), patientField,
-                    new Label("Date"), datePicker,
                     new Label("Time"), timeField,
                     new Label("Dentist"), dentistField,
                     new Label("Service"), serviceField,
-                    new Label("Status"), statusField  // you can change this to whatever status you want, or you can add a dropdown for the status in the edit popup
+                    new Label("Status"), statusField
             );
-
+            
             Button saveBtn = new Button("Save");
 
             saveBtn.setOnAction(ev -> {
                 int id = Integer.parseInt(selected.idProperty().get());
+                String date = selected.dateProperty().get(); // Keep original booking date
+                String serviceDate = serviceDatePicker.getValue() != null ? serviceDatePicker.getValue().toString() : selected.serviceDateProperty().get();
+                String time = timeField.getValue() != null ? timeField.getValue() : selected.timeProperty().get();
+                String dentist = dentistField.getValue() != null ? dentistField.getValue().toLowerCase().replace("dr. ", "").replace(" ", "_") : selected.dentistProperty().get();
+                String service = serviceField.getValue() != null ? serviceField.getValue() : selected.serviceProperty().get();
+                String status = statusField.getValue() != null ? statusField.getValue() : selected.statusProperty().get();
                 
-                // the first condition here is to check if the date picker has a value, if it has a value, then we use the value of the date picker, if it doesn't have a value, then we use the original date of the appointment, this is to prevent the date from being changed to null if the user doesn't change the date in the edit popup
-                // it the datepicker is not null, then we use the value of the datepicker, if it is null, then we use the original date of the appointment, this is to prevent the date from being changed to null if the user doesn't change the date in the edit popup
-                String date = datePicker.getValue() != null ? datePicker.getValue().toString() : selected.dateProperty().get(); // if the date is not changed, use the original date
-                String time = timeField.getValue() != null ? timeField.getValue() : selected.timeProperty().get(); // if the time is not changed, use the original time
-                String dentist = dentistField.getValue() != null ? dentistField.getValue().toLowerCase().replace("dr. ", "").replace(" ", "_") : selected.dentistProperty().get(); // if the dentist is not changed, use the original dentist, if the dentist is changed, then we convert it to the format that we need to store in the database (with underscores and without dr.); // if the dentist is not changed, use the original dentist
-                String service = serviceField.getValue() != null ? serviceField.getValue() : selected.serviceProperty().get(); // if the service is not changed, use the original service
-                // same as the date and time, if the status field is not null, then we use the value of the status field, if it is null, then we use the original status of the appointment, this is to prevent the status from being changed to null if the user doesn't change the status in the edit popup
-                String status = statusField.getValue() != null ? statusField.getValue() : selected.statusProperty().get(); // if the status is not changed, use the original status
+                // Verify that serviceDate is being used correctly
+                System.out.println("DEBUG: Updating appointment " + id + " with serviceDate: " + serviceDate);
                 
-                Dao.updateBooking(id, date, time, dentist, service, status);
+                Dao.updateBooking(id, serviceDate, time, dentist, service, status);
                 
-                // Call the new unified refresh method
                 refreshTableData();
+                loadAppointmentCount(totalAppointments);
+                loadDailyAndWeeklyCounts(dailyCompleted, dailyIncomplete, weeklyCompleted, weeklyIncomplete);
+
                 popup.close();
             });
+
 
             VBox layout = new VBox(10, form, saveBtn);
             layout.setPadding(new Insets(15));
 
-            popup.setScene(new Scene(layout, 300, 450));
+            popup.setScene(new Scene(layout, 300, 550));
             popup.showAndWait();
         });
 
@@ -384,9 +522,9 @@ public class AdminUI extends Application {
                 functions.applicationFunctions.showDialog("Appointment deleted successfully!", "Deletion Successful", "Success", "INFORMATION");
 
                 // Call the unified refresh method and update the statistics label
-                refreshTableData(); 
-                loadAppointmentCount(appointmentsToday); 
-            }
+                refreshTableData();
+                loadAppointmentCount(totalAppointments);
+                loadDailyAndWeeklyCounts(dailyCompleted, dailyIncomplete, weeklyCompleted, weeklyIncomplete);            }
         });
         // TABLE WRAPPER
         HBox tableWrapper = new HBox(table);
@@ -396,7 +534,7 @@ public class AdminUI extends Application {
         // ===== CENTER CONTENT =====
         VBox center = new VBox(15,
                 reportsTitle,
-                reportsBox,
+                reportsRow,
                 appTitle,
                 pagination,
                 btnBox
@@ -483,26 +621,27 @@ public class AdminUI extends Application {
     }
 
     public static class Appointment {
-        private SimpleStringProperty ID, date, time, patient, dentist, service, status;
+        private SimpleStringProperty ID, date, serviceDate, time, patient, dentist, service, status;
 
-        public Appointment(int I, String d, String t, String p, String den, String s, String stat) {
-        	ID = new SimpleStringProperty(String.valueOf(I));
+        public Appointment(int I, String d, String sd, String t, String p, String den, String s, String stat) {
+            ID = new SimpleStringProperty(String.valueOf(I));
             date = new SimpleStringProperty(d);
+            serviceDate = new SimpleStringProperty(sd);
             time = new SimpleStringProperty(t);
             patient = new SimpleStringProperty(p);
             dentist = new SimpleStringProperty(den);
             service = new SimpleStringProperty(s);
             status = new SimpleStringProperty(stat);
         }
-        
-        
-        // these functions are used to get the value of the properties
+
         public SimpleStringProperty idProperty() { return ID; }
         public SimpleStringProperty dateProperty() { return date; }
+        public SimpleStringProperty serviceDateProperty() { return serviceDate; }
         public SimpleStringProperty timeProperty() { return time; }
         public SimpleStringProperty patientProperty() { return patient; }
         public SimpleStringProperty dentistProperty() { return dentist; }
         public SimpleStringProperty serviceProperty() { return service; }
         public SimpleStringProperty statusProperty() { return status; }
     }
+
 }
