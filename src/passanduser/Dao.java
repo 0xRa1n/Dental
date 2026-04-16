@@ -318,7 +318,11 @@ public class Dao {
 	}
 	public static boolean deleteBooking(int id) {
 	    Connection con = null;
-	    PreparedStatement ps = null;
+	    PreparedStatement psSelect = null;
+	    PreparedStatement psInsertDeleted = null;
+	    PreparedStatement psDelete = null;
+	    ResultSet rs = null;
+	    String date, serviceDate;
 
 	    try {
 	        con = Dbconnection.getConnection();
@@ -329,40 +333,87 @@ public class Dao {
 
 	        con.setAutoCommit(false);
 
-	        String sql = "DELETE FROM appointments WHERE id = ?";
-	        ps = con.prepareStatement(sql);
-	        ps.setInt(1, id);
+	        // 1) Read appointment row
+	        String selectSql = "SELECT id, username, date, serviceDate, serviceTime, dentist, dentalService, status, notes FROM appointments WHERE id=?";
+	        psSelect = con.prepareStatement(selectSql);
+	        psSelect.setInt(1, id);
+	        rs = psSelect.executeQuery();
 
-	        int affectedRows = ps.executeUpdate();
-	        con.commit();
-
-	        if (affectedRows > 0) {
-	            System.out.println("✅ Appointment deleted for ID " + id);
-	            return true;
-	        } else {
+	        if (!rs.next()) {
 	            System.out.println("❌ No appointment found with ID " + id);
+	            con.rollback();
 	            return false;
 	        }
 
-	    } catch (SQLException e) {
+	        // 2) Insert into deleted_appointments
+	        String insertDeletedSql =
+	        	    "INSERT INTO deleted_appointments " +
+	        	    "(appointment_id, username, serviceDate, date, serviceTime, dentist, dentalService, status, notes) " +
+	        	    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
+	        	psInsertDeleted = con.prepareStatement(insertDeletedSql);
+	        	psInsertDeleted.setInt(1, rs.getInt("id"));
+	        	psInsertDeleted.setString(2, rs.getString("username"));
+
+	        	try {
+	        	    java.sql.Timestamp timestamp = rs.getTimestamp("date");
+	        	    date = timestamp != null ? new java.sql.Date(timestamp.getTime()).toString() : LocalDate.now().toString();
+	        	    psInsertDeleted.setString(3, date);
+	        	} catch (Exception e) {
+	        	    date = rs.getString("date");
+	        	    psInsertDeleted.setString(3, date);
+	        	}
+
+	        	try {
+	        	    java.sql.Timestamp timestamp = rs.getTimestamp("serviceDate");
+	        	    serviceDate = timestamp != null ? new java.sql.Date(timestamp.getTime()).toString() : LocalDate.now().toString();
+	        	    psInsertDeleted.setString(4, serviceDate);
+	        	} catch (Exception e) {
+	        	    serviceDate = rs.getString("serviceDate");
+	        	    psInsertDeleted.setString(4, serviceDate);
+	        	}
+
+	        	psInsertDeleted.setString(5, rs.getString("serviceTime"));  // ← ADD THIS LINE
+	        	psInsertDeleted.setString(6, rs.getString("dentist"));
+	        	psInsertDeleted.setString(7, rs.getString("dentalService"));
+	        	psInsertDeleted.setString(8, rs.getString("status"));
+	        	psInsertDeleted.setString(9, rs.getString("notes") == null ? "" : rs.getString("notes"));
+
+
+	        boolean archived = psInsertDeleted.executeUpdate() > 0;
+	        if (!archived) {
+	            System.out.println("❌ Failed to archive appointment ID " + id);
+	            con.rollback();
+	            return false;
+	        }
+
+	        // 3) Delete from appointments
+	        String deleteSql = "DELETE FROM appointments WHERE id=?";
+	        psDelete = con.prepareStatement(deleteSql);
+	        psDelete.setInt(1, id);
+
+	        boolean deleted = psDelete.executeUpdate() > 0;
+	        if (!deleted) {
+	            System.out.println("❌ Deletion failed for appointment ID " + id);
+	            con.rollback();
+	            return false;
+	        }
+
+	        con.commit();
+	        System.out.println("✅ Appointment archived and deleted for ID " + id);
+	        return true;
+	    } catch (Exception e) {
 	        try {
 	            if (con != null) con.rollback();
 	        } catch (SQLException ignored) {}
 	        System.out.println("❌ Deletion Error: " + e.getMessage());
 	        e.printStackTrace();
-	        return false;
-	    } catch (Exception e) {
-	        System.out.println("❌ Deletion Error: " + e.getMessage());
-	        e.printStackTrace();
-	        return false;
 	    } finally {
-	        try {
-	            if (con != null) con.setAutoCommit(true);
-	        } catch (SQLException ignored) {}
-	        closeSafely(null, ps, con);
+	        closeSafely(rs, psSelect, null);
+	        closeSafely(null, psInsertDeleted, null);
+	        closeSafely(null, psDelete, con);
 	    }
+		return false;
 	}
-
 
 	public static void deleteUser(int id) {
 		Connection con = null;

@@ -33,73 +33,78 @@ public class AdminUI extends Application {
     // Elevate pagination to class scope
     private Pagination pagination;
     
- private void loadAppointments() {
-    appointments.clear();
+    private void loadAppointments() {
+        appointments.clear();
+        String sql = "SELECT id, username, date, serviceDate, serviceTime, dentist, status, dentalService FROM appointments";
+        try (Connection con = Dbconnection.getConnection();
+             PreparedStatement ps = con.prepareStatement(sql)) {
+            if (con != null) {
+                try (ResultSet rs = ps.executeQuery()) {
+                    while (rs.next()) {
+                        int id = rs.getInt("id");
+                        String date;
+                        String serviceDate;
+                        
+                        try {
+                            java.sql.Timestamp timestamp = rs.getTimestamp("date");
+                            date = timestamp != null ? new java.sql.Date(timestamp.getTime()).toString() : LocalDate.now().toString();
+                        } catch (Exception e) {
+                            date = rs.getString("date");
+                        }
+                        
+                        try {
+                            java.sql.Timestamp timestamp = rs.getTimestamp("serviceDate");
+                            serviceDate = timestamp != null ? new java.sql.Date(timestamp.getTime()).toString() : LocalDate.now().toString();
+                        } catch (Exception e) {
+                            serviceDate = rs.getString("serviceDate");
+                        }
+                        
+                        String time = rs.getString("serviceTime");
+                        String patient = rs.getString("username");
+                        String dentist = rs.getString("dentist");
+                        String service = rs.getString("dentalService");
+                        String status = rs.getString("status");
 
-    String sql = "SELECT id, username, date, serviceDate, serviceTime, dentist, status, dentalService FROM appointments";
-
-    try (Connection con = Dbconnection.getConnection();
-         PreparedStatement ps = con.prepareStatement(sql);
-         ResultSet rs = ps.executeQuery()) {
-
-        while (rs.next()) {
-            int id = rs.getInt("id");
-
-            java.sql.Date bookingDateSql = rs.getDate("date");
-            String date = (bookingDateSql != null)
-                    ? bookingDateSql.toLocalDate().toString()
-                    : LocalDate.now().toString();
-
-            java.sql.Date serviceDateSql = rs.getDate("serviceDate");
-            String serviceDate = (serviceDateSql != null)
-                    ? serviceDateSql.toLocalDate().toString()
-                    : LocalDate.now().toString();
-
-            String time = rs.getString("serviceTime");
-            String patient = rs.getString("username");
-            String dentist = rs.getString("dentist");
-            String service = rs.getString("dentalService");
-            String status = rs.getString("status");
-
-            appointments.add(new Appointment(id, date, serviceDate, time, patient, dentist, service, status));
+                        appointments.add(new Appointment(id, date, serviceDate, time, patient, dentist, service, status));
+                    }
+                } catch (Exception e) {
+                    System.out.println("❌ Failed to load appointments: " + e.getMessage());
+                    e.printStackTrace();
+                }
+            }
+        } catch (Exception e) {
+            System.out.println("❌ Failed to load appointments: " + e.getMessage());
+            e.printStackTrace();
         }
-
-    } catch (Exception e) {
-        System.out.println("❌ Failed to load appointments: " + e.getMessage());
-        e.printStackTrace();
     }
-}
-
-
 
 
     private int countAppointmentsByRangeAndStatus(LocalDate fromInclusive, LocalDate toExclusive, String status) {
-        // Force date-only conversion on DB side to avoid timestamp parser path
-        String sql = "SELECT COUNT(*) " +
-                     "FROM appointments " +
-                     "WHERE date(serviceDate) >= date(?) " +
-                     "AND date(serviceDate) < date(?) " +
-                     "AND status = ?";
-
+        String fromDate = fromInclusive.toString();
+        String toDate = toExclusive.toString();
+        
+        // Use serviceDate instead of date
+        String sql = "SELECT COUNT(*) FROM appointments WHERE serviceDate >= ? AND serviceDate < ? AND status = ?";
         try (Connection con = Dbconnection.getConnection();
              PreparedStatement ps = con.prepareStatement(sql)) {
 
-            // Bind as ISO strings for SQLite date() function
-            ps.setString(1, fromInclusive.toString());
-            ps.setString(2, toExclusive.toString());
+            ps.setString(1, fromDate);
+            ps.setString(2, toDate);
             ps.setString(3, status);
 
             try (ResultSet rs = ps.executeQuery()) {
-                if (rs.next()) return rs.getInt(1);
+                if (rs.next()) {
+                    int count = rs.getInt(1);
+                    System.out.println("DEBUG: Found " + count + " appointments between " + fromDate + " and " + toDate + " with status '" + status + "'");
+                    return count;
+                }
             }
         } catch (Exception e) {
-            System.out.println("❌ Failed to count appointments for status '" + status + "' in range " +
-                    fromInclusive + " to " + toExclusive);
+            System.out.println("❌ Failed to count appointments for status '" + status + "' in range " + fromDate + " to " + toDate);
             e.printStackTrace();
         }
         return 0;
     }
-
 
     private void loadDailyAndWeeklyCounts(
     	    Label dailyCompleted, Label dailyPending,
