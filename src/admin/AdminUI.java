@@ -35,21 +35,6 @@ public class AdminUI extends Application {
     // Elevate pagination to class scope
     private Pagination pagination;
     
-    private void debugDateFormat() {
-        String sql = "SELECT date, typeof(date), status FROM appointments LIMIT 5";
-        try (Connection con = Dbconnection.getConnection();
-             PreparedStatement ps = con.prepareStatement(sql)) {
-            try (ResultSet rs = ps.executeQuery()) {
-                while (rs.next()) {
-                    System.out.println("Date: " + rs.getString("date") + " | Type: " + rs.getString("typeof(date)") + " | Status: " + rs.getString("status"));
-                }
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-    }
-
-    
     private void loadAppointments() {
         appointments.clear();
         String sql = "SELECT id, username, date, serviceDate, serviceTime, dentist, status, dentalService FROM appointments";
@@ -112,7 +97,6 @@ public class AdminUI extends Application {
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
                     int count = rs.getInt(1);
-                    System.out.println("DEBUG: Found " + count + " appointments between " + fromDate + " and " + toDate + " with status '" + status + "'");
                     return count;
                 }
             }
@@ -223,8 +207,7 @@ public class AdminUI extends Application {
         stage.setWidth(900);
         stage.setHeight(800);
         loadAppointments();
-        debugDateFormat();  // Add this line here
-
+       
 
         BorderPane root = new BorderPane();
         root.setStyle("-fx-background-color:#e6e6e6; -fx-border-color:green; -fx-border-width:2;");
