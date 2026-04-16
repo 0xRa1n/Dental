@@ -24,8 +24,6 @@ import javafx.collections.ObservableList;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 
-import application.Main.App.Appointment;
-
 public class AdminUI extends Application {
 
     private TableView<Appointment> table = new TableView<>();
@@ -35,77 +33,73 @@ public class AdminUI extends Application {
     // Elevate pagination to class scope
     private Pagination pagination;
     
-    private void loadAppointments() {
-        appointments.clear();
-        String sql = "SELECT id, username, date, serviceDate, serviceTime, dentist, status, dentalService FROM appointments";
-        try (Connection con = Dbconnection.getConnection();
-             PreparedStatement ps = con.prepareStatement(sql)) {
-            if (con != null) {
-                try (ResultSet rs = ps.executeQuery()) {
-                    while (rs.next()) {
-                        int id = rs.getInt("id");
-                        String date;
-                        String serviceDate;
-                        
-                        try {
-                            java.sql.Timestamp timestamp = rs.getTimestamp("date");
-                            date = timestamp != null ? new java.sql.Date(timestamp.getTime()).toString() : LocalDate.now().toString();
-                        } catch (Exception e) {
-                            date = rs.getString("date");
-                        }
-                        
-                        try {
-                            java.sql.Timestamp timestamp = rs.getTimestamp("serviceDate");
-                            serviceDate = timestamp != null ? new java.sql.Date(timestamp.getTime()).toString() : LocalDate.now().toString();
-                        } catch (Exception e) {
-                            serviceDate = rs.getString("serviceDate");
-                        }
-                        
-                        String time = rs.getString("serviceTime");
-                        String patient = rs.getString("username");
-                        String dentist = rs.getString("dentist");
-                        String service = rs.getString("dentalService");
-                        String status = rs.getString("status");
+ private void loadAppointments() {
+    appointments.clear();
 
-                        appointments.add(new Appointment(id, date, serviceDate, time, patient, dentist, service, status));
-                    }
-                } catch (Exception e) {
-                    System.out.println("❌ Failed to load appointments: " + e.getMessage());
-                    e.printStackTrace();
-                }
-            }
-        } catch (Exception e) {
-            System.out.println("❌ Failed to load appointments: " + e.getMessage());
-            e.printStackTrace();
+    String sql = "SELECT id, username, date, serviceDate, serviceTime, dentist, status, dentalService FROM appointments";
+
+    try (Connection con = Dbconnection.getConnection();
+         PreparedStatement ps = con.prepareStatement(sql);
+         ResultSet rs = ps.executeQuery()) {
+
+        while (rs.next()) {
+            int id = rs.getInt("id");
+
+            java.sql.Date bookingDateSql = rs.getDate("date");
+            String date = (bookingDateSql != null)
+                    ? bookingDateSql.toLocalDate().toString()
+                    : LocalDate.now().toString();
+
+            java.sql.Date serviceDateSql = rs.getDate("serviceDate");
+            String serviceDate = (serviceDateSql != null)
+                    ? serviceDateSql.toLocalDate().toString()
+                    : LocalDate.now().toString();
+
+            String time = rs.getString("serviceTime");
+            String patient = rs.getString("username");
+            String dentist = rs.getString("dentist");
+            String service = rs.getString("dentalService");
+            String status = rs.getString("status");
+
+            appointments.add(new Appointment(id, date, serviceDate, time, patient, dentist, service, status));
         }
+
+    } catch (Exception e) {
+        System.out.println("❌ Failed to load appointments: " + e.getMessage());
+        e.printStackTrace();
     }
+}
+
+
 
 
     private int countAppointmentsByRangeAndStatus(LocalDate fromInclusive, LocalDate toExclusive, String status) {
-        String fromDate = fromInclusive.toString();
-        String toDate = toExclusive.toString();
-        
-        // Use serviceDate instead of date
-        String sql = "SELECT COUNT(*) FROM appointments WHERE serviceDate >= ? AND serviceDate < ? AND status = ?";
+        // Force date-only conversion on DB side to avoid timestamp parser path
+        String sql = "SELECT COUNT(*) " +
+                     "FROM appointments " +
+                     "WHERE date(serviceDate) >= date(?) " +
+                     "AND date(serviceDate) < date(?) " +
+                     "AND status = ?";
+
         try (Connection con = Dbconnection.getConnection();
              PreparedStatement ps = con.prepareStatement(sql)) {
 
-            ps.setString(1, fromDate);
-            ps.setString(2, toDate);
+            // Bind as ISO strings for SQLite date() function
+            ps.setString(1, fromInclusive.toString());
+            ps.setString(2, toExclusive.toString());
             ps.setString(3, status);
 
             try (ResultSet rs = ps.executeQuery()) {
-                if (rs.next()) {
-                    int count = rs.getInt(1);
-                    return count;
-                }
+                if (rs.next()) return rs.getInt(1);
             }
         } catch (Exception e) {
-            System.out.println("❌ Failed to count appointments for status '" + status + "' in range " + fromDate + " to " + toDate);
+            System.out.println("❌ Failed to count appointments for status '" + status + "' in range " +
+                    fromInclusive + " to " + toExclusive);
             e.printStackTrace();
         }
         return 0;
     }
+
 
     private void loadDailyAndWeeklyCounts(
     	    Label dailyCompleted, Label dailyPending,
@@ -496,19 +490,38 @@ public class AdminUI extends Application {
         removeBtn.setOnAction(e -> {
             Appointment selected = table.getSelectionModel().getSelectedItem();
             if (selected == null) return;
-            
-            int id = Integer.parseInt(selected.idProperty().get());
-            boolean confirmation = functions.applicationFunctions.showConfirmationDialog("Are you sure you want to delete this appointment?", "Confirm Deletion", "Delete Appointment");
-            
-            if(confirmation) {
-                Dao.deleteBooking(id);
-                functions.applicationFunctions.showDialog("Appointment deleted successfully!", "Deletion Successful", "Success", "INFORMATION");
 
-                // Call the unified refresh method and update the statistics label
-                refreshTableData();
-                loadAppointmentCount(totalAppointments);
-                loadDailyAndWeeklyCounts(dailyCompleted, dailyIncomplete, weeklyCompleted, weeklyIncomplete);            }
+            int id = Integer.parseInt(selected.idProperty().get());
+            boolean confirmation = functions.applicationFunctions.showConfirmationDialog(
+                    "Are you sure you want to delete this appointment?",
+                    "Confirm Deletion",
+                    "Delete Appointment"
+            );
+
+            if (confirmation) {
+                boolean deleted = Dao.deleteBooking(id);
+                if (deleted) {
+                    functions.applicationFunctions.showDialog(
+                            "Appointment deleted successfully!",
+                            "Deletion Successful",
+                            "Success",
+                            "INFORMATION"
+                    );
+
+                    refreshTableData();
+                    loadAppointmentCount(totalAppointments);
+                    loadDailyAndWeeklyCounts(dailyCompleted, dailyIncomplete, weeklyCompleted, weeklyIncomplete);
+                } else {
+                    functions.applicationFunctions.showDialog(
+                            "Deletion failed. Check console logs for details.",
+                            "Deletion Error",
+                            "Error",
+                            "ERROR"
+                    );
+                }
+            }
         });
+
         // TABLE WRAPPER
         HBox tableWrapper = new HBox(table);
         tableWrapper.setAlignment(Pos.CENTER);

@@ -316,85 +316,53 @@ public class Dao {
 		}
 		
 	}
-	// in Dao.java
-	public static void deleteBooking(int id) {
+	public static boolean deleteBooking(int id) {
 	    Connection con = null;
-	    PreparedStatement psSelect = null;
-	    PreparedStatement psInsertDeleted = null;
-	    PreparedStatement psDelete = null;
-	    ResultSet rs = null;
+	    PreparedStatement ps = null;
 
 	    try {
 	        con = Dbconnection.getConnection();
 	        if (con == null) {
 	            System.out.println("❌ Database connection failed!");
-	            return;
+	            return false;
 	        }
 
 	        con.setAutoCommit(false);
 
-	        // 1) Read appointment row
-	        String selectSql = "SELECT id, username, date, serviceTime, dentist, dentalService, status, notes FROM appointments WHERE id=?";
-	        psSelect = con.prepareStatement(selectSql);
-	        psSelect.setInt(1, id);
-	        rs = psSelect.executeQuery();
+	        String sql = "DELETE FROM appointments WHERE id = ?";
+	        ps = con.prepareStatement(sql);
+	        ps.setInt(1, id);
 
-	        if (!rs.next()) {
-	            System.out.println("❌ No appointment found with ID " + id);
-	            con.rollback();
-	            return;
-	        }
-
-	        // 2) Insert into deleted_appointments
-	        String insertDeletedSql =
-	            "INSERT INTO deleted_appointments " +
-	            "(appointment_id, username, date, serviceTime, dentist, dentalService, status, notes) " +
-	            "VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
-	        psInsertDeleted = con.prepareStatement(insertDeletedSql);
-	        psInsertDeleted.setInt(1, rs.getInt("id"));
-	        psInsertDeleted.setString(2, rs.getString("username"));
-	        // Correctly format the date from the DATE column to a String
-	        psInsertDeleted.setString(3, rs.getDate("date").toString());
-	        psInsertDeleted.setString(4, rs.getString("serviceTime"));
-	        psInsertDeleted.setString(5, rs.getString("dentist"));
-	        psInsertDeleted.setString(6, rs.getString("dentalService"));
-	        psInsertDeleted.setString(7, rs.getString("status"));
-	        psInsertDeleted.setString(8, rs.getString("notes") == null ? "" : rs.getString("notes"));
-
-	        boolean archived = psInsertDeleted.executeUpdate() > 0;
-	        if (!archived) {
-	            System.out.println("❌ Failed to archive appointment ID " + id);
-	            con.rollback();
-	            return;
-	        }
-
-	        // 3) Delete from appointments
-	        String deleteSql = "DELETE FROM appointments WHERE id=?";
-	        psDelete = con.prepareStatement(deleteSql);
-	        psDelete.setInt(1, id);
-
-	        boolean deleted = psDelete.executeUpdate() > 0;
-	        if (!deleted) {
-	            System.out.println("❌ Deletion failed for appointment ID " + id);
-	            con.rollback();
-	            return;
-	        }
-
+	        int affectedRows = ps.executeUpdate();
 	        con.commit();
-	        System.out.println("✅ Appointment archived and deleted for ID " + id);
 
-	    } catch (Exception e) {
+	        if (affectedRows > 0) {
+	            System.out.println("✅ Appointment deleted for ID " + id);
+	            return true;
+	        } else {
+	            System.out.println("❌ No appointment found with ID " + id);
+	            return false;
+	        }
+
+	    } catch (SQLException e) {
 	        try {
 	            if (con != null) con.rollback();
 	        } catch (SQLException ignored) {}
 	        System.out.println("❌ Deletion Error: " + e.getMessage());
 	        e.printStackTrace();
+	        return false;
+	    } catch (Exception e) {
+	        System.out.println("❌ Deletion Error: " + e.getMessage());
+	        e.printStackTrace();
+	        return false;
 	    } finally {
-	        closeSafely(rs, psSelect, null);
-	        closeSafely(null, psInsertDeleted, null);
-	        closeSafely(null, psDelete, con);
+	        try {
+	            if (con != null) con.setAutoCommit(true);
+	        } catch (SQLException ignored) {}
+	        closeSafely(null, ps, con);
 	    }
 	}
+
 
 	public static void deleteUser(int id) {
 		Connection con = null;
