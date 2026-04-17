@@ -84,7 +84,7 @@ public class AdminUI extends Application {
         String toDate = toExclusive.toString();
         
         // Use serviceDate instead of date
-        String sql = "SELECT COUNT(*) FROM appointments WHERE serviceDate >= ? AND serviceDate < ? AND status = ?";
+        String sql = "SELECT COUNT(*) FROM appointments WHERE date >= ? AND date < ? AND status = ?";
         try (Connection con = Dbconnection.getConnection();
              PreparedStatement ps = con.prepareStatement(sql)) {
 
