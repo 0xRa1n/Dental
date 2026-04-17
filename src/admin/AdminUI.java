@@ -120,11 +120,9 @@ public class AdminUI extends Application {
     	    int dailyComp = countAppointmentsByRangeAndStatus(today, tomorrow, "Completed");
     	    int dailyPend = countAppointmentsByRangeAndStatus(today, tomorrow, "Pending");
     	    
-    	    // Weekly counts: from Monday to Sunday (end of current week), excluding today (already counted in daily)
-    	    int weeklyComp = countAppointmentsByRangeAndStatus(weekStart, today, "Completed") + 
-    	                     countAppointmentsByRangeAndStatus(tomorrow, weekEnd, "Completed");
-    	    int weeklyPend = countAppointmentsByRangeAndStatus(weekStart, today, "Pending") + 
-    	                     countAppointmentsByRangeAndStatus(tomorrow, weekEnd, "Pending");
+    	    // Weekly counts: from Monday to Sunday (end of current week), INCLUDING today
+    	    int weeklyComp = countAppointmentsByRangeAndStatus(weekStart, weekEnd, "Completed");
+    	    int weeklyPend = countAppointmentsByRangeAndStatus(weekStart, weekEnd, "Pending");
 
     	    dailyCompleted.setText("Completed Appointments: " + dailyComp);
     	    dailyPending.setText("Pending Appointments: " + dailyPend);
